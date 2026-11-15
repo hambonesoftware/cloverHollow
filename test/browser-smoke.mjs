@@ -106,6 +106,7 @@ try {
   const cameraZoomed=await page.evaluate(()=>window.__cloverTest.camera());
   assert.ok(cameraZoomed.zoom<cameraDragged.zoom,'wheel should zoom into the town');
 
+  await mkdir(resolve(root,'test-results'),{recursive:true});
   // Verify that the three worker branches are actually integrated into the
   // playable scene, not merely present as unused source modules.
   const districtData=await page.evaluate(()=>window.__cloverTest.districts());
