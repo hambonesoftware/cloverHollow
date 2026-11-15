@@ -88,7 +88,7 @@ const VISITOR_PALETTE=[0xc9a1b6,0xa9bf80,0x8caacc,0xd7ad7d,0xb4a2c5];
  * visible and route. All positions are plain numbers: the Three.js view reads
  * these fields, but the model never touches scene objects.
  */
-export function createNpcSimulation(graph,{visitorCount=5}={}){
+export function createNpcSimulation(graph,{visitorCount=5,activityAnchors=[]}={}){
   const residents=RESIDENTS.map((data,i)=>({
     ...data,visitor:false,ordinal:i,seed:i+1,phase:i*.7,
     x:data.home[0],z:data.home[1],target:[...data.home],route:[],
@@ -107,6 +107,9 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
   const actors=[...residents,...visitors];
   for(const a of actors){a.occupation=occupationFor(a);a.pose='idle';a.heldProp=null;a.stationId=null;a.lookTarget=null;a.heading=0;a.velocity={x:0,z:0};}
   const director=createActivityDirector(graph,actors);
+  // Worker 1's optional district anchors are forwarded by Worker 3's town
+  // adapter. Validate against real navigation, retaining the old no-anchor path.
+  if(Array.isArray(activityAnchors)&&activityAnchors.length)director.setActivityAnchors(activityAnchors);
   function setGoal(a,goal){
     if(samePosition(a.lastGoal,goal))return;
     a.lastGoal=[...goal];a.target=[...goal];
