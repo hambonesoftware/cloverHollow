@@ -1,6 +1,10 @@
 import * as THREE from 'three';
+import {createStorybookLighting} from './rendering/storybook-lighting.js';
+import {createStorybookAtmosphere} from './atmosphere/storybook-atmosphere.js';
 import { LOTS } from './rules.js';
-import { box, sphere, cylinder, flat, sign, makePerson, animatePerson, tree, flower, gardenBench, lampPost } from './art.js';
+import { box, sphere, cylinder, flat, sign, makePerson, tree, flower, gardenBench, lampPost } from './art.js';
+import { equipOccupation, setHeldProp } from './characters/outfits.js';
+import { applyActorVisualState } from './characters/animation.js';
 import { createFairyBuilding } from './architecture/generator.js';
 import { createFairyLandscape } from './environment/landscape.js';
 import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from './world/layout.js';
@@ -31,17 +35,10 @@ const asPoint=([x,z])=>({x,z});
  *   pedestrianGraph -> reusable navigation graph (read-only by convention)
  * The optional deed to getPlayerLot overrides the value passed to useLot.
  */
-export function createTown(scene){
+export function createTown(scene,{quality='medium'}={}){
   scene.background=new THREE.Color(0xc9e3ea);
   scene.fog=new THREE.Fog(0xc9e3ea,105,240);
-  const skyDay=new THREE.Color(0xc9e3ea),skyDusk=new THREE.Color(0xaec3d2);
-  const ambient=new THREE.HemisphereLight(0xfff3e2,0x88a98e,2.05);
-  scene.add(ambient);
-  const sun=new THREE.DirectionalLight(0xffedce,2.35);
-  sun.position.set(-35,64,35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
-  Object.assign(sun.shadow.camera,{left:-100,right:100,top:100,bottom:-160,near:1,far:150});
-  sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.normalBias=.035;scene.add(sun);
+  const storybookLighting=createStorybookLighting(scene,{quality});
 
   const collision=createOutdoorCollision();
   const {walkable,obstacles}=collision;
@@ -51,7 +48,7 @@ export function createTown(scene){
   scene.add(flat(WORLD_BOUNDS.maxX-WORLD_BOUNDS.minX+18,
     WORLD_BOUNDS.maxZ-WORLD_BOUNDS.minZ+18,color.grass,0,-.09,
     (WORLD_BOUNDS.minZ+WORLD_BOUNDS.maxZ)/2));
-  const cityInfrastructure=createCityInfrastructure(scene,{quality:'mobile'});
+  const cityInfrastructure=createCityInfrastructure(scene,{quality});
 
   // Original village roads live here; district streets are rendered once by
   // createCityInfrastructure, avoiding duplicate paving and extra draw calls.
@@ -103,8 +100,8 @@ export function createTown(scene){
   ];
   const entertainmentSites=[...DISTRICT_SITES.filter(site=>site.district==='entertainment'),
     ...SCENIC_ENTERTAINMENT_SITES];
-  const downtownDistrict=createDowntownDistrict(scene,{sites:downtownSites,seed:'clover-downtown',quality:'mobile'});
-  const entertainmentDistrict=createEntertainmentDistrict(scene,{sites:entertainmentSites,seed:'lantern-quarter',quality:'mobile'});
+  const downtownDistrict=createDowntownDistrict(scene,{sites:downtownSites,seed:'clover-downtown',quality});
+  const entertainmentDistrict=createEntertainmentDistrict(scene,{sites:entertainmentSites,seed:'lantern-quarter',quality});
   const districtActions=new Map();
   for(const entry of [...downtownDistrict.interactables,...entertainmentDistrict.interactables]){
     if(!districtActions.has(entry.siteId))districtActions.set(entry.siteId,[]);
@@ -239,10 +236,14 @@ export function createTown(scene){
 
   const player=makePerson('kid',{shirt:0x7aaf96,hair:0x634f4e,trousers:0x6a91a4});
   scene.add(player);
-  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16});
+  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:downtownDistrict.activityAnchors??[]});
+  const atmosphere=createStorybookAtmosphere(scene,{quality,walkable,locations:routePoints});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
+    // The new optional occupation rig is visual-only; the original NPC IDs,
+    // routes, dialogue, and save data remain owned by the simulation.
+    equipOccupation(model,data.occupation??'resident');
     model.position.set(data.x,0,data.z);model.visible=data.visible;
     scene.add(model);actorModels.set(data.id,model);
     return {...data,model};
@@ -282,8 +283,25 @@ export function createTown(scene){
     const npc=simulation.actors.find(a=>a.id===id||a.name===id);
     return npc?{id:npc.id,name:npc.name,x:npc.x,z:npc.z,activity:npc.activity,
       intention:npc.intention,target:[...npc.target],visible:npc.visible,
-      moving:npc.moving,routeError:npc.routeError??null}:null;
+      moving:npc.moving,occupation:npc.occupation,pose:npc.pose,
+      heldProp:npc.heldProp,stationId:npc.stationId??null,
+      routeError:npc.routeError??null}:null;
   };
+  function visualDiagnostics(){
+    let downtownProps=0;
+    downtownDistrict.root.traverse(node=>{
+      if(node.userData?.propType)downtownProps++;
+    });
+    return {
+      downtownProps,
+      dressedCitizens:[...actorModels.values()].filter(model=>!!model.userData.outfit).length,
+      professions:new Set(simulation.actors.map(actor=>actor.occupation).filter(Boolean)).size,
+      registeredStations:simulation.activityDirector?.stations.length??0,
+      activeCitizens:simulation.actors.filter(actor=>actor.visible).length,
+      lightingActive:!!storybookLighting.sun,
+      districtBuildings:downtownDistrict.root.children.length
+    };
+  }
   const updateNpcSimulation=(dt,daySeconds)=>simulation.advance(dt,daySeconds);
   function update(dt,t=0,daySeconds=0){
     simulation.advance(dt,daySeconds);
@@ -292,26 +310,25 @@ export function createTown(scene){
       view.x=data.x;view.z=data.z;view.target=data.target;
       view.activity=data.activity;view.intention=data.intention;
       view.visible=data.visible;view.moving=data.moving;
+      view.pose=data.pose;view.occupation=data.occupation;
+      view.heldProp=data.heldProp;view.stationId=data.stationId;
       model.visible=data.visible;
       if(!data.visible)continue;
       model.position.set(data.x,0,data.z);
-      if(Number.isFinite(data.heading))model.rotation.y=data.heading;
-      animatePerson(model,t,data.moving,data.phase);
+      setHeldProp(model,data.heldProp??null);
+      applyActorVisualState(model,data,dt);
     }
     downtownDistrict.update(dt,daySeconds);
     entertainmentDistrict.update(dt,daySeconds);
-    const fraction=((daySeconds%DAY_LENGTH)+DAY_LENGTH)%DAY_LENGTH/DAY_LENGTH;
-    const bright=Math.max(.28,Math.min(1,Math.sin(Math.PI*(fraction*.9+.07))*1.2));
-    ambient.intensity=1.1+bright*.95;sun.intensity=.65+bright*1.75;
-    scene.background.copy(skyDusk).lerp(skyDay,bright);
-    scene.fog.color.copy(scene.background);
+    const sky=storybookLighting.update(daySeconds);
+    atmosphere.update(dt,sky.night);
   }
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
     cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
-    districtActions,
+    districtActions,storybookLighting,atmosphere,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
-    getPlayerLot,getNpcState,updateNpcSimulation};
+    getPlayerLot,getNpcState,updateNpcSimulation,visualDiagnostics};
 }
