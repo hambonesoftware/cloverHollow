@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#527d70">
+  <meta name="description" content="Clover Hollow — a cozy little Three.js village where you can find a home and make it your own.">
+  <title>Clover Hollow · A Little Place to Belong</title>
+  <link rel="stylesheet" href="./src/ui/styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main id="game" aria-label="Clover Hollow game">
+    <canvas id="world" aria-label="Interactive 3D village and cottage"></canvas>
+    <div id="game-ui"></div>
+    <noscript>Clover Hollow needs JavaScript enabled to play.</noscript>
+  </main>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
