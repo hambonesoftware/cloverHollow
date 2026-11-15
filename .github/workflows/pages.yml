@@ -26,8 +26,16 @@ jobs:
           node --check src/viewmodels/decorating-view-model.js
           node --check src/story/dialogue.js
           node --check src/rules.js
+          node --check src/art.js
+          node --check src/town.js
+          node --check src/world/layout.js
+          node --check src/world/navigation.js
+          node --check src/simulation/town-life.js
+          node --check src/interiors/dollhouse.js
+          node --check src/interiors/placement-controller.js
+          node --check src/interiors/room-walker.js
       - name: Run unit tests
-        run: node --test test/*.test.js src/viewmodels/*.test.js src/persistence/*.test.js
+        run: node --test test/*.test.js src/viewmodels/*.test.js src/persistence/*.test.js src/interiors/*.test.js src/simulation/*.test.js
 
   deploy:
     name: Publish to GitHub Pages
