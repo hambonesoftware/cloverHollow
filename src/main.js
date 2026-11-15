@@ -7,6 +7,7 @@ import { DecoratingViewModel } from './viewmodels/decorating-view-model.js';
 import { browserStorage } from './persistence/save-store.js';
 import { AppUI } from './ui/app-ui.js';
 import { dialogueFor } from './story/dialogue.js';
+import { isWalkable } from './interiors/placement-logic.js';
 
 const canvas = document.querySelector('#world');
 const uiRoot = document.querySelector('#game-ui');
@@ -193,7 +194,7 @@ function interact() {
       distances.push({ distance, kind:'place', entry:place });
   }
   for (const actor of town.actors ?? []) {
-    if (!actor.name || !actor.model) continue;
+    if (!actor.name || !actor.model || actor.model.visible === false) continue;
     const distance = Math.hypot(actor.model.position.x-x,actor.model.position.z-z);
     if (distance < 3.1)
       distances.push({ distance:distance+.25, kind:'actor', entry:actor });
@@ -239,6 +240,8 @@ function interact() {
 
 ui = new AppUI(uiRoot,game,decorating,{ interact, leave });
 game.subscribe(updateScene);
+if (currentState.scene === 'home' && currentState.story.homeVisits > 0 &&
+    !currentState.story.housewarming) ui.showHousewarming();
 if (fallbackRoom) ui.toast('Preview room active. The full dollhouse module will arrive with its feature branch.');
 
 function canvasPoint(event) {
@@ -357,9 +360,18 @@ function animate() {
     if (saveClock>=.75) { saveClock=0;game.setTownPosition(playerPosition.x,playerPosition.z); }
   } else {
     if (walking) {
-      indoorPlayer.position.x=THREE.MathUtils.clamp(indoorPlayer.position.x+dx*3.8*dt,-3.75,3.75);
-      indoorPlayer.position.z=THREE.MathUtils.clamp(indoorPlayer.position.z+dz*3.8*dt,-3.2,3.1);
-      indoorPlayer.rotation.y=Math.atan2(dx,dz);
+      const nx = indoorPlayer.position.x + dx * 3.8 * dt;
+      const nz = indoorPlayer.position.z + dz * 3.8 * dt;
+      // Share the interior branch's collision rules: furniture is solid to walkers.
+      if (isWalkable(nx, nz, currentState.placements)) {
+        indoorPlayer.position.x = nx;
+        indoorPlayer.position.z = nz;
+      } else if (isWalkable(nx, indoorPlayer.position.z, currentState.placements)) {
+        indoorPlayer.position.x = nx;
+      } else if (isWalkable(indoorPlayer.position.x, nz, currentState.placements)) {
+        indoorPlayer.position.z = nz;
+      }
+      indoorPlayer.rotation.y = Math.atan2(dx, dz);
     }
     animatePerson(indoorPlayer,walkAnimation,walking);
   }
