@@ -6,7 +6,7 @@ import { createFairyLandscape } from './environment/landscape.js';
 import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from './world/layout.js';
 import { createPedestrianGraph, findPedestrianRoute } from './world/navigation.js';
 import { createNpcSimulation, DAY_LENGTH } from './simulation/town-life.js';
-import { DISTRICT_SITES, DISTRICT_PATHS, WORLD_BOUNDS } from './world/district-plan.js';
+import { DISTRICT_SITES, SCENIC_ENTERTAINMENT_SITES, DISTRICT_PATHS, WORLD_BOUNDS } from './world/district-plan.js';
 import { createCityInfrastructure } from './city/infrastructure.js';
 import { createDowntownDistrict } from './districts/downtown/index.js';
 import { createEntertainmentDistrict } from './districts/entertainment/index.js';
@@ -101,7 +101,8 @@ export function createTown(scene){
       kind:'mayor-office',name:"Mayor Thistle's Office",
       seed:'clover-hollow:mayor-office'}
   ];
-  const entertainmentSites=DISTRICT_SITES.filter(site=>site.district==='entertainment');
+  const entertainmentSites=[...DISTRICT_SITES.filter(site=>site.district==='entertainment'),
+    ...SCENIC_ENTERTAINMENT_SITES];
   const downtownDistrict=createDowntownDistrict(scene,{sites:downtownSites,seed:'clover-downtown',quality:'mobile'});
   const entertainmentDistrict=createEntertainmentDistrict(scene,{sites:entertainmentSites,seed:'lantern-quarter',quality:'mobile'});
   const districtActions=new Map();
@@ -247,7 +248,7 @@ export function createTown(scene){
     return {...data,model};
   });
 
-  const focusables=BUILDINGS.map(b=>({
+  const focusables=[...BUILDINGS,...SCENIC_ENTERTAINMENT_SITES].map(b=>({
     id:b.id,x:b.entrance[0],z:b.entrance[1],r:b.kind==='lot'?3.4:3.2,
     name:b.name,kind:b.kind,lotIndex:b.lotIndex??null,
     district:b.district??(b.id==='mayor'?'downtown':null),
