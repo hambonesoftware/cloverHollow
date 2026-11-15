@@ -23,8 +23,10 @@ export class AppUI {
       <nav class="toolbar" id="toolbar" aria-label="Game actions"></nav>
       <div id="panel-host"></div><div id="modal-host"></div>
       <div id="decor-host"></div><div class="hint" id="hint"></div>
-      <div class="joystick" id="joystick" aria-label="Movement joystick">
-        <div class="joystick-knob" id="joystick-knob"></div>
+      <div class="move-zone" id="move-zone" aria-label="Touch area for movement">
+        <div class="joystick" id="joystick" aria-label="Floating movement joystick">
+          <div class="joystick-knob" id="joystick-knob"></div>
+        </div>
       </div>
       <button class="interact-touch" data-action="interact" aria-label="Interact">TALK<br>✦</button>
       <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>`;
@@ -39,41 +41,54 @@ export class AppUI {
     this.render();
   }
   _bindJoystick() {
-    const base = this.root.querySelector('#joystick');
-    const knob = this.root.querySelector('#joystick-knob');
-    let activePointer = null;
-    const update = event => {
-      const box = base.getBoundingClientRect();
-      const radius = box.width / 2;
-      let dx = event.clientX - (box.left + radius);
-      let dy = event.clientY - (box.top + radius);
-      const max = radius * .65;
-      const distance = Math.hypot(dx, dy);
-      if (distance > max) { dx *= max / distance; dy *= max / distance; }
-      this.axes = { x: dx / max, y: dy / max };
-      knob.style.left = `calc(50% + ${dx}px)`;
-      knob.style.top = `calc(50% + ${dy}px)`;
+    const zone=this.root.querySelector('#move-zone');
+    const base=this.root.querySelector('#joystick');
+    const knob=this.root.querySelector('#joystick-knob');
+    let activePointer=null;
+    const reset=()=>{
+      this.axes={x:0,y:0};
+      knob.style.left='50%';
+      knob.style.top='50%';
+      zone.classList.remove('active');
     };
-    base.addEventListener('pointerdown', event => {
+    const update=event=>{
+      const bounds=base.getBoundingClientRect();
+      const radius=bounds.width/2;
+      const max=radius*.69;
+      let dx=event.clientX-(bounds.left+radius);
+      let dy=event.clientY-(bounds.top+radius);
+      const length=Math.hypot(dx,dy);
+      if(length>max){dx*=max/length;dy*=max/length;}
+      this.axes={x:dx/max,y:dy/max};
+      knob.style.left='calc(50% + '+dx+'px)';
+      knob.style.top='calc(50% + '+dy+'px)';
+    };
+    zone.addEventListener('pointerdown',event=>{
       event.preventDefault();
-      if (activePointer !== null) return;
-      activePointer = event.pointerId;
-      base.setPointerCapture(event.pointerId);
+      if(activePointer!==null)return;
+      activePointer=event.pointerId;
+      zone.setPointerCapture(event.pointerId);
+      const bounds=zone.getBoundingClientRect();
+      const half=base.offsetWidth/2;
+      const x=Math.min(bounds.width-half,Math.max(half,event.clientX-bounds.left));
+      const y=Math.min(bounds.height-half,Math.max(half,event.clientY-bounds.top));
+      base.style.left=x+'px';
+      base.style.top=y+'px';
+      zone.classList.add('active');
       update(event);
     });
-    base.addEventListener('pointermove', event => {
-      if (activePointer === event.pointerId) update(event);
+    zone.addEventListener('pointermove',event=>{
+      if(activePointer===event.pointerId)update(event);
     });
-    const release = event => {
-      if (activePointer !== event.pointerId) return;
-      activePointer = null;
-      this.axes = { x: 0, y: 0 };
-      knob.style.left = '50%';
-      knob.style.top = '50%';
+    const release=event=>{
+      if(activePointer!==event.pointerId)return;
+      activePointer=null;
+      reset();
     };
-    base.addEventListener('pointerup', release);
-    base.addEventListener('pointercancel', release);
-    base.addEventListener('lostpointercapture', release);
+    zone.addEventListener('pointerup',release);
+    zone.addEventListener('pointercancel',release);
+    zone.addEventListener('lostpointercapture',release);
+    window.addEventListener('blur',reset);
   }
   _act(action) {
     if (action === 'interact') { this.actions.interact(); return; }
@@ -266,14 +281,17 @@ export class AppUI {
     this.root.querySelector('#brand').innerHTML = '<strong>✿ Clover Hollow</strong><small>A little place to belong</small>';
     this.root.querySelector('#status').innerHTML = `✿ ${state.petals} petals<small>${escapeHtml(lot)}</small>`;
     const actions = home
-      ? [['Your Satchel', 'inventory'], ['Decorate', 'decorate'], ['Leave Cottage', 'leave']]
+      ? [['Satchel', 'inventory'], ['Decorate', 'decorate'], ['Leave Cottage', 'leave']]
       : [['Talk / Enter', 'interact'], ['Satchel', 'inventory']];
     actions.push(['? Help', 'help']);
     this.root.querySelector('#toolbar').innerHTML = actions.map(([label, action]) =>
       `<button data-action="${action}" class="${this.panel === action ? 'active' : ''}">${escapeHtml(label)}</button>`).join('');
     this.root.querySelector('#hint').textContent = home
-      ? decor.mode ? 'Tap the floor to preview · Rotate · Place or Cancel' : 'This is your space. Use Decorate to make it yours.'
-      : state.deed === null ? 'Find Mayor Thistle to select your very own cottage.' : 'Wander, meet the neighbors, and visit your front door.';
+      ? decor.mode ? 'Tap to preview · Rotate · Place' : 'Drag to look · Pinch to zoom · Decorate'
+      : state.deed === null ? 'Find Mayor Thistle for your cottage deed.' : 'Explore the village · Drag to look around';
+    const touchAction=this.root.querySelector('.interact-touch');
+    touchAction.dataset.action=home?'leave':'interact';
+    touchAction.innerHTML=home?'LEAVE<span aria-hidden="true">⌂</span>':'TALK<span aria-hidden="true">✦</span>';
     this.root.querySelector('#panel-host').innerHTML = this._panel(state, decor);
     this.root.querySelector('#modal-host').innerHTML = this._dialog(state);
     this.root.querySelector('#decor-host').innerHTML = home && decor.mode
