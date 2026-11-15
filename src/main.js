@@ -243,6 +243,32 @@ game.subscribe(updateScene);
 if (currentState.scene === 'home' && currentState.story.homeVisits > 0 &&
     !currentState.story.housewarming) ui.showHousewarming();
 if (fallbackRoom) ui.toast('Preview room active. The full dollhouse module will arrive with its feature branch.');
+// Browser-only integration probes are never exposed during normal play.
+// They let CI exercise the complete town/deed/interior/save path without a
+// brittle multi-minute keyboard walk across an actively simulated village.
+if (new URLSearchParams(location.search).has('integration-test')) {
+  window.__cloverTest = {
+    state: () => game.state,
+    townPosition(x, z) {
+      if (currentState.scene !== 'town' || !town.walkable(x, z)) return false;
+      playerPosition = { x, z };
+      town.player.position.set(x, 0, z);
+      game.setTownPosition(x, z);
+      return true;
+    },
+    previewAt: (x, z) => decorating.preview(x, z),
+    currentScene: () => currentScene,
+    actorCount: () => town.actors.length,
+    roomFurnitureCount: () => dollhouse.root
+      ?.getObjectByName('Furniture • synchronized placements')?.children.length ?? 0,
+    testFloorHit() {
+      camera.updateMatrixWorld(true);
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+      return dollhouse.floorPosition(ray);
+    }
+  };
+}
 
 function canvasPoint(event) {
   const bounds=canvas.getBoundingClientRect();
