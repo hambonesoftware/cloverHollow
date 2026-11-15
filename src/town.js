@@ -309,7 +309,7 @@ export function createTown(scene){
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
-    cityInfrastructure,districtSites:DISTRICT_SITES,
+    cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
     districtActions,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
