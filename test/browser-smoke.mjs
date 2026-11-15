@@ -94,6 +94,7 @@ try {
   await page.locator('#toolbar [data-action="leave"]').click();
   assert.equal(await page.evaluate(() => window.__cloverTest.state().scene), 'town');
 
+  await mkdir(resolve(root,'test-results'),{recursive:true});
   // Validate the actual merged downtown and entertainment factory output.
   const districtInfo=await page.evaluate(()=>window.__cloverTest.districts());
   assert.ok(districtInfo.downtown>=12,'downtown service interactables must be mounted');
