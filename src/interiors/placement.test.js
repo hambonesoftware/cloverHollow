@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { FURNITURE, ROOM, canPlace, footprint, STARTER_PLACEMENTS } from '../rules.js';
+import { FURNITURE, ROOM, canPlace, footprint, STARTER_PLACEMENTS,
+  initialSave, unusedFurniture } from '../rules.js';
 import {
   GRID_STEP, CHARACTER_RADIUS, normalizeTurn, snap, snapPosition,
   moveCandidate, rotateCandidate, isWalkable, findWalkPath
@@ -97,6 +98,15 @@ test('blocked goals resolve to a reachable position instead of entering furnitur
   const path = findWalkPath({ x: 2, z: 2 }, { x: 0, z: 0 }, [chair]);
   assert.ok(path.length > 0);
   assert.ok(isWalkable(path.at(-1).x, path.at(-1).z, [chair]));
+});
+
+test('retrieval returns a placed item to the available tray without losing ownership', () => {
+  const state = initialSave();
+  const owned = state.inventory.bed;
+  assert.equal(unusedFurniture(state, 'bed'), 0);
+  state.placements = state.placements.filter(p => p.type !== 'bed');
+  assert.equal(state.inventory.bed, owned);
+  assert.equal(unusedFurniture(state, 'bed'), 1);
 });
 
 test('pathfinding refuses invalid inputs and supports an empty room', () => {
