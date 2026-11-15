@@ -99,7 +99,7 @@ try {
   const districtInfo=await page.evaluate(()=>window.__cloverTest.districts());
   assert.ok(districtInfo.downtown>=12,'downtown service interactables must be mounted');
   assert.ok(districtInfo.entertainment>=5,'entertainment venue interactions must be mounted');
-  assert.equal(districtInfo.sites.length,12,'no dropped district sites');
+  assert.ok(districtInfo.sites.length>=14,'downtown, venues, festival green and gardens must all be registered');
 
   // Post Office: the first registered service is receiving mail. A real
   // UI click must award a one-time keepsake through the existing save model.
