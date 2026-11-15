@@ -8,6 +8,7 @@ import { approvedSwoopHeight } from './approved-cottage.js';
 
 const cottage=BUILDINGS.find(b=>b.id==='lot-0');
 const workshop=BUILDINGS.find(b=>b.id==='bruno');
+const colorDistance=(a,b)=>Math.hypot(a.r-b.r,a.g-b.g,a.b-b.b);
 
 function find(root,name){
   const result=root.getObjectByName(name);
@@ -46,8 +47,8 @@ test('actual runtime factory builds approved roof, roof-following house and arch
   const body=find(result,'Roof-following cottage shell');
   const door=find(result,'Approved cottage arched doorway');
   assert.ok(roof.geometry.isBufferGeometry);
-  assert.ok(body.geometry.isExtrudeGeometry);
-  assert.ok(door.geometry.isExtrudeGeometry);
+  assert.ok(body.geometry.type==='ExtrudeGeometry');
+  assert.ok(door.geometry.type==='ExtrudeGeometry');
   body.geometry.computeBoundingBox();
   assert.ok(body.geometry.boundingBox.max.y>4);
   assert.equal(roof.userData.approvedPrototype,'sweepHeight');
@@ -62,11 +63,11 @@ test('shingles use seeded multi-tonal roof color, never cream facade trim',()=>{
   assert.ok(shingles.count>=150);
   assert.ok(shingles.instanceColor,'per shingle color values must be present');
   const colors=[sampleColor(shingles,0),sampleColor(shingles,1),sampleColor(shingles,4)];
-  assert.ok(colors.some((c,i)=>i>0&&c.distanceTo(colors[0])>.005),
+  assert.ok(colors.some((c,i)=>i>0&&colorDistance(c,colors[0])>.005),
     'per tile colors should vary');
   const average=colors.reduce((acc,c)=>acc.add(c),new THREE.Color(0)).multiplyScalar(1/colors.length);
-  assert.ok(average.distanceTo(new THREE.Color(0xb67d98))<
-    average.distanceTo(new THREE.Color(0xffefcf)),
+  assert.ok(colorDistance(average,new THREE.Color(0xb67d98))<
+    colorDistance(average,new THREE.Color(0xffefcf)),
     'roof should resemble the original rose/purple palette, not cream shingles');
 });
 test('moonspire shares identical roof algorithm and grows a curled tower into it',()=>{
