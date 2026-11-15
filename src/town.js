@@ -33,10 +33,10 @@ const asPoint=([x,z])=>({x,z});
  *   pedestrianGraph -> reusable navigation graph (read-only by convention)
  * The optional deed to getPlayerLot overrides the value passed to useLot.
  */
-export function createTown(scene){
+export function createTown(scene,{quality='medium'}={}){
   scene.background=new THREE.Color(0xc9e3ea);
   scene.fog=new THREE.Fog(0xc9e3ea,105,240);
-  const storybookLighting=createStorybookLighting(scene,{quality:'medium'});
+  const storybookLighting=createStorybookLighting(scene,{quality});
 
   const collision=createOutdoorCollision();
   const {walkable,obstacles}=collision;
@@ -46,7 +46,7 @@ export function createTown(scene){
   scene.add(flat(WORLD_BOUNDS.maxX-WORLD_BOUNDS.minX+18,
     WORLD_BOUNDS.maxZ-WORLD_BOUNDS.minZ+18,color.grass,0,-.09,
     (WORLD_BOUNDS.minZ+WORLD_BOUNDS.maxZ)/2));
-  const cityInfrastructure=createCityInfrastructure(scene,{quality:'mobile'});
+  const cityInfrastructure=createCityInfrastructure(scene,{quality});
 
   // Original village roads live here; district streets are rendered once by
   // createCityInfrastructure, avoiding duplicate paving and extra draw calls.
@@ -98,8 +98,8 @@ export function createTown(scene){
   ];
   const entertainmentSites=[...DISTRICT_SITES.filter(site=>site.district==='entertainment'),
     ...SCENIC_ENTERTAINMENT_SITES];
-  const downtownDistrict=createDowntownDistrict(scene,{sites:downtownSites,seed:'clover-downtown',quality:'mobile'});
-  const entertainmentDistrict=createEntertainmentDistrict(scene,{sites:entertainmentSites,seed:'lantern-quarter',quality:'mobile'});
+  const downtownDistrict=createDowntownDistrict(scene,{sites:downtownSites,seed:'clover-downtown',quality}});
+  const entertainmentDistrict=createEntertainmentDistrict(scene,{sites:entertainmentSites,seed:'lantern-quarter',quality}});
   const districtActions=new Map();
   for(const entry of [...downtownDistrict.interactables,...entertainmentDistrict.interactables]){
     if(!districtActions.has(entry.siteId))districtActions.set(entry.siteId,[]);
@@ -235,7 +235,7 @@ export function createTown(scene){
   const player=makePerson('kid',{shirt:0x7aaf96,hair:0x634f4e,trousers:0x6a91a4});
   scene.add(player);
   const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:downtownDistrict.activityAnchors??[]});
-  const atmosphere=createStorybookAtmosphere(scene,{quality:'medium',walkable,locations:routePoints});
+  const atmosphere=createStorybookAtmosphere(scene,{quality,walkable,locations:routePoints});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
