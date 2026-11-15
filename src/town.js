@@ -2,7 +2,9 @@ import * as THREE from 'three';
 import {createStorybookLighting} from './rendering/storybook-lighting.js';
 import {createStorybookAtmosphere} from './atmosphere/storybook-atmosphere.js';
 import { LOTS } from './rules.js';
-import { box, sphere, cylinder, flat, sign, makePerson, animatePerson, tree, flower, gardenBench, lampPost } from './art.js';
+import { box, sphere, cylinder, flat, sign, makePerson, tree, flower, gardenBench, lampPost } from './art.js';
+import { equipOccupation, setHeldProp } from './characters/outfits.js';
+import { applyActorVisualState } from './characters/animation.js';
 import { createFairyBuilding } from './architecture/generator.js';
 import { createFairyLandscape } from './environment/landscape.js';
 import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from './world/layout.js';
@@ -239,6 +241,9 @@ export function createTown(scene,{quality='medium'}={}){
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
+    // The new optional occupation rig is visual-only; the original NPC IDs,
+    // routes, dialogue, and save data remain owned by the simulation.
+    equipOccupation(model,data.occupation??'resident');
     model.position.set(data.x,0,data.z);model.visible=data.visible;
     scene.add(model);actorModels.set(data.id,model);
     return {...data,model};
@@ -278,7 +283,9 @@ export function createTown(scene,{quality='medium'}={}){
     const npc=simulation.actors.find(a=>a.id===id||a.name===id);
     return npc?{id:npc.id,name:npc.name,x:npc.x,z:npc.z,activity:npc.activity,
       intention:npc.intention,target:[...npc.target],visible:npc.visible,
-      moving:npc.moving,routeError:npc.routeError??null}:null;
+      moving:npc.moving,occupation:npc.occupation,pose:npc.pose,
+      heldProp:npc.heldProp,stationId:npc.stationId??null,
+      routeError:npc.routeError??null}:null;
   };
   const updateNpcSimulation=(dt,daySeconds)=>simulation.advance(dt,daySeconds);
   function update(dt,t=0,daySeconds=0){
@@ -288,11 +295,13 @@ export function createTown(scene,{quality='medium'}={}){
       view.x=data.x;view.z=data.z;view.target=data.target;
       view.activity=data.activity;view.intention=data.intention;
       view.visible=data.visible;view.moving=data.moving;
+      view.pose=data.pose;view.occupation=data.occupation;
+      view.heldProp=data.heldProp;view.stationId=data.stationId;
       model.visible=data.visible;
       if(!data.visible)continue;
       model.position.set(data.x,0,data.z);
-      if(Number.isFinite(data.heading))model.rotation.y=data.heading;
-      animatePerson(model,t,data.moving,data.phase);
+      setHeldProp(model,data.heldProp??null);
+      applyActorVisualState(model,data,dt);
     }
     downtownDistrict.update(dt,daySeconds);
     entertainmentDistrict.update(dt,daySeconds);
