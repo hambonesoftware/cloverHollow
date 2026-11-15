@@ -186,10 +186,17 @@ try {
   const cameraZoomed=await page.evaluate(()=>window.__cloverTest.camera());
   assert.ok(cameraZoomed.zoom<cameraDragged.zoom,'wheel should zoom into the town');
 
+  // Release the desktop WebGL context before opening a second software-rendered
+  // Three.js scene. Two simultaneous large towns can exhaust SwiftShader memory.
+  await page.screenshot({path:resolve(root,'test-results/town-desktop.png')});
+  await page.close();
+  page=null;
+
   // Exercise the actual touch events on a portrait-sized screen.
+  // DPR 1 preserves touch/mobile layout while keeping headless software GL viable.
   const mobileContext=await browser.newContext({
     viewport:{width:390,height:844},
-    deviceScaleFactor:2,isMobile:true,hasTouch:true
+    deviceScaleFactor:1,isMobile:true,hasTouch:true
   });
   const mobile=await mobileContext.newPage();
   mobile.on('pageerror',error=>errors.push('mobile: '+error.message));
@@ -226,7 +233,6 @@ try {
   assert.equal(await mobile.evaluate(()=>window.__cloverTest.townPosition(31,-102)),true);
   await mobile.waitForTimeout(350);
   await mobile.screenshot({path:resolve(root,'test-results/lantern-quarter-phone-portrait.png')});
-  await page.screenshot({path:resolve(root,'test-results/town-desktop.png')});
   await mobile.screenshot({path:resolve(root,'test-results/town-phone-portrait.png')});
   await mobileContext.close();
   assert.deepEqual(errors, [], 'No uncaught errors while playing');
