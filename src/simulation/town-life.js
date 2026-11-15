@@ -1,3 +1,5 @@
+import {createActivityDirector} from '../behaviors/activity-director.js';
+import {occupationFor} from '../occupations/index.js';
 import { BUILDINGS, PLAZA_SOCIAL_SPOTS, PLACES } from '../world/layout.js';
 import { findPedestrianRoute } from '../world/navigation.js';
 
@@ -86,7 +88,7 @@ const VISITOR_PALETTE=[0xc9a1b6,0xa9bf80,0x8caacc,0xd7ad7d,0xb4a2c5];
  * visible and route. All positions are plain numbers: the Three.js view reads
  * these fields, but the model never touches scene objects.
  */
-export function createNpcSimulation(graph,{visitorCount=5}={}){
+export function createNpcSimulation(graph,{visitorCount=5,activityAnchors=[]}={}){
   const residents=RESIDENTS.map((data,i)=>({
     ...data,visitor:false,ordinal:i,seed:i+1,phase:i*.7,
     x:data.home[0],z:data.home[1],target:[...data.home],route:[],
@@ -103,6 +105,11 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
       intention:'resting',lastGoal:null,lines:[]};
   });
   const actors=[...residents,...visitors];
+  for(const a of actors){a.occupation=occupationFor(a);a.pose='idle';a.heldProp=null;a.stationId=null;a.lookTarget=null;a.heading=0;a.velocity={x:0,z:0};}
+  const director=createActivityDirector(graph,actors);
+  // Worker 1's optional district anchors are forwarded by Worker 3's town
+  // adapter. Validate against real navigation, retaining the old no-anchor path.
+  if(Array.isArray(activityAnchors)&&activityAnchors.length)director.setActivityAnchors(activityAnchors);
   function setGoal(a,goal){
     if(samePosition(a.lastGoal,goal))return;
     a.lastGoal=[...goal];a.target=[...goal];
@@ -117,13 +124,15 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
     const time=Number.isFinite(daySeconds)?daySeconds:0;
     for(let i=0;i<actors.length;i++){
       const a=actors[i];
+      const beforeX=a.x,beforeZ=a.z;
+      a.lookTarget=null;
       let activity,goal;
       if(a.visitor){
         const dayTime=((time%DAY_LENGTH)+DAY_LENGTH)%DAY_LENGTH;
         const active=dayTime>=190+i%4*22&&dayTime<1130-i%5*16;
         if(!active){
           a.active=false;a.visible=false;a.moving=false;a.activity='resting';
-          a.lastGoal=null;continue;
+          a.lastGoal=null;a.velocity={x:0,z:0};a.pose='idle';continue;
         }
         if(!a.active){
           a.active=true;a.x=a.home[0];a.z=a.home[1];a.lastGoal=null;
@@ -136,6 +145,7 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
         goal=residentDestination(a,a.ordinal,time,activity);
       }
       a.visible=true;a.intention=activity;
+      if((activity==='working'||activity==='delivery')&&a.stationId&&a.station)goal=[a.station.x,a.station.z];
       setGoal(a,goal);
       let remaining=step*(a.visitor?1.55:1.7);
       a.moving=false;
@@ -154,10 +164,13 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
       }
       if(a.waypoint>=a.route.length)a.moving=false;
       a.activity=a.moving&&activity!=='returning_home'?'walking':activity;
+      a.velocity={x:step>0?(a.x-beforeX)/step:0,z:step>0?(a.z-beforeZ)/step:0};
+      director.update(a,time,step);
       // Residents rest indoors once they reach their own front door.
       if(!a.visitor&&activity==='resting'&&!a.moving&&
         Math.hypot(a.x-a.home[0],a.z-a.home[1])<.25)a.visible=false;
     }
+    director.socialize(time);
   }
-  return {actors,residents,visitors,advance};
+  return {actors,residents,visitors,advance,setActivityAnchors:director.setActivityAnchors,activityDirector:director};
 }
