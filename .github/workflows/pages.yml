@@ -39,7 +39,7 @@ jobs:
 
   browser:
     name: Three.js playable town and cottage
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: test
     steps:
       - uses: actions/checkout@v4
