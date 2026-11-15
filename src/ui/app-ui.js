@@ -17,6 +17,8 @@ export class AppUI {
     this.axes = { x: 0, y: 0 };
     this.modal = !game.state.greeting ? 'welcome' : game.state.deed === null ? 'lots' : null;
     this.dialogue = null;
+    this.districtView = null;
+    this.activityView = null;
     this.toastTimer = null;
     root.innerHTML = `
       <div class="hud"><div class="brand" id="brand"></div><div class="status" id="status"></div></div>
@@ -92,6 +94,19 @@ export class AppUI {
   }
   _act(action) {
     if (action === 'interact') { this.actions.interact(); return; }
+    if (action.startsWith('district-item:')) {
+      const index=Number(action.slice('district-item:'.length));
+      const option=this.districtView?.actions[index];
+      if(option)this.actions.onDistrictAction?.(option,this.districtView);
+      return;
+    }
+    if (action.startsWith('activity-choice:')) {
+      const index=Number(action.slice('activity-choice:'.length));
+      if(Number.isInteger(index))this.actions.onActivityChoice?.(index);
+      return;
+    }
+    if (action === 'activity-cancel') { this.actions.onActivityCancel?.(); this.modal=null; this.render();return; }
+    if (action === 'activity-restart') { this.actions.onActivityRestart?.();return; }
     if (action === 'leave') { this.actions.leave(); return; }
     if (action === 'close' || action === 'dismiss') {
       this.modal = null;
@@ -161,6 +176,18 @@ export class AppUI {
     el.hidden = false;
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => { el.hidden = true; }, 3200);
+  }
+  openDistrict(name,actions) {
+    this.panel=null;
+    this.districtView={name:String(name),actions:actions.map(a=>({...a}))};
+    this.modal='district';
+    this.render();
+  }
+  showActivity(view) {
+    this.panel=null;
+    this.activityView=view;
+    this.modal='activity';
+    this.render();
   }
   showWelcome() { this.modal = 'welcome'; this.render(); }
   showLots() { this.modal = 'lots'; this.render(); }
@@ -258,6 +285,35 @@ export class AppUI {
     } else if (this.modal === 'housewarming') {
       ({ speaker, title, body } = HOUSEWARMING);
       footer = button('Celebrate Together ♥', 'celebrate', true);
+    } else if (this.modal === 'district') {
+      const district=this.districtView;
+      speaker='Clover Hollow · Living Town';
+      title=district?.name??'Explore the neighborhood';
+      body='Take your time. Here are the things you can do at this destination.';
+      extra='<div class="district-actions">'+(district?.actions??[]).map((item,i)=>
+        button(item.label,'district-item:'+i)).join('')+'</div>';
+      footer=button('Back to town','dismiss',true);
+    } else if (this.modal === 'activity') {
+      const view=this.activityView;
+      const game=view?.state;
+      speaker='Lantern Quarter · Village Games';
+      title=view?.label??'A Little Village Game';
+      if(game?.status==='active'){
+        body='Round '+(game.round+1)+' of '+view.rounds+' · '+game.score+' successful tries. '+(view?.prompt?.hint??'Choose your next move.');
+        const type=view?.prompt?.type;
+        const n=type==='aim'?5:type==='beat'?4:3;
+        const targetIndex=Math.round((view.prompt.target??0)*(type==='aim'?4:type==='beat'?3:1));
+        const typeLabel=type==='aim'?'Ring':type==='beat'?'Note':'Gesture';
+        extra='<div class="festival-target">✦ Watch for '+escapeHtml(typeLabel.toLowerCase())+' '+(targetIndex+1)+' ✦</div>'
+          +'<div class="festival-actions">'+Array.from({length:n},(_,i)=>
+            button(typeLabel+' '+(i+1),'activity-choice:'+i)).join('')+'</div>';
+        footer=button('Leave the game','activity-cancel');
+      }else{
+        const success=Boolean(game?.reward);
+        body=game?.status==='complete'?(success?'Wonderful! You earned '+game.reward+'. Find it in your satchel keepsakes.':'A lovely try! Come back and practice again.'):'You stepped away. You are welcome to play again.';
+        extra='<p class="festival-score">Final score: '+(game?.score??0)+' / '+(view?.rounds??0)+'</p>';
+        footer=button('Play again','activity-restart',true)+' '+button('Return to town','dismiss');
+      }
     } else if (this.modal === 'dialogue') {
       speaker = this.dialogue?.speaker ?? 'Neighbor';
       title = 'A little conversation';
@@ -266,7 +322,7 @@ export class AppUI {
     } else if (this.modal === 'help') {
       speaker = 'Field Guide';
       title = 'A cozy guide to Clover Hollow';
-      body = 'WASD or arrow keys: walk. E or Space: interact. I: open your satchel. Escape: close menus. On touch screens, drag the joystick and tap Talk. Visit the mayor to claim a cottage, Little Oak to buy furniture, and your front door to enter. Inside, tap Decorate or select furniture to move, rotate, and store it.';
+      body = 'WASD or arrow keys: walk. E or Space: interact. I: satchel. Escape: close menus. Drag the thumbstick and tap Talk on touch screens. Visit the Mayor for a deed, then explore Old Town for the Post Office, library, Town Hall and shops. Head south to Lantern Quarter for games, music, and theater. Decorate your own two-wall cottage from the home menu.';
       footer = button('Got it', 'dismiss', true);
     }
     return `<div class="backdrop"><article class="dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
