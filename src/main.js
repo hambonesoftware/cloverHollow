@@ -9,6 +9,8 @@ import { DecoratingViewModel } from './viewmodels/decorating-view-model.js';
 import { browserStorage } from './persistence/save-store.js';
 import { AppUI } from './ui/app-ui.js';
 import { dialogueFor } from './story/dialogue.js';
+import { describeDistrictAction } from './city/district-interactions.js';
+import { ACTIVITY_DEFINITIONS, startActivity, advanceActivity, activityPrompt, cancelActivity, restartActivity } from './activities/entertainment/index.js';
 import { isWalkable } from './interiors/placement-logic.js';
 
 const canvas = document.querySelector('#world');
@@ -145,6 +147,7 @@ let playerPosition = { ...currentState.town };
 let placementsKey = '';
 let lastDeed = undefined;
 let ui;
+let activeFestivalGame = null;
 
 function positionHomeCamera() {
   // Preserve the open-front two-wall viewing quadrant while allowing user zoom.
@@ -214,8 +217,14 @@ function interact() {
     ui.showDialogue(target.name,dialogueFor(target.name,visits));
     return;
   }
+  if (target.district && target.id !== 'mayor') {
+    if (target.actions.length) ui.openDistrict(target.name,target.actions);
+    else ui.showDialogue(target.name,'The neighborhood looks splendid. Enjoy the little sights and sounds along the street.');
+    return;
+  }
   if (target.id === 'mayor') {
     if (currentState.deed === null) ui.showLots();
+    else if (target.actions.length) ui.openDistrict("Mayor Thistle's Office",target.actions);
     else {
       const visits=currentState.story.conversations['Mayor Thistle'] ?? 0;
       game.talkTo('Mayor Thistle');
@@ -242,7 +251,50 @@ function interact() {
   }
 }
 
-ui = new AppUI(uiRoot,game,decorating,{ interact, leave });
+function updateFestivalGame(){
+  if(!activeFestivalGame)return;
+  const def=ACTIVITY_DEFINITIONS[activeFestivalGame.kind];
+  ui.showActivity({
+    state:activeFestivalGame,label:def.label,rounds:def.rounds,
+    prompt:activityPrompt(activeFestivalGame)
+  });
+}
+function onDistrictAction(option){
+  const action=option?.action;
+  if(!action)return;
+  if(action==='mayor.deed'&&currentState.deed===null){ui.showLots();return;}
+  const result=describeDistrictAction(action);
+  if(result.type==='shop'){ui.openShop();return;}
+  if(result.type==='activity'){
+    activeFestivalGame=startActivity(result.kind,{seed:Math.floor(currentState.daySeconds/15)+17});
+    updateFestivalGame();
+    return;
+  }
+  if(result.reward){
+    const saved=game.awardKeepsake(result.reward);
+    if(saved.ok&&!saved.value.alreadyOwned)ui.toast('New keepsake added to your satchel!');
+  }
+  ui.showDialogue(result.speaker,result.line);
+}
+function onActivityChoice(index){
+  if(!activeFestivalGame||activeFestivalGame.status!=='active')return;
+  const prompt=activityPrompt(activeFestivalGame);
+  const value=prompt.type==='aim'?index/4:prompt.type==='beat'?index/3:index;
+  activeFestivalGame=advanceActivity(activeFestivalGame,value);
+  if(activeFestivalGame.reward)game.awardKeepsake(activeFestivalGame.reward);
+  updateFestivalGame();
+}
+function onActivityCancel(){
+  if(activeFestivalGame)activeFestivalGame=cancelActivity(activeFestivalGame);
+  activeFestivalGame=null;
+}
+function onActivityRestart(){
+  if(activeFestivalGame){activeFestivalGame=restartActivity(activeFestivalGame);updateFestivalGame();}
+}
+
+ui = new AppUI(uiRoot,game,decorating,{
+  interact,leave,onDistrictAction,onActivityChoice,onActivityCancel,onActivityRestart
+});
 game.subscribe(updateScene);
 if (currentState.scene === 'home' && currentState.story.homeVisits > 0 &&
     !currentState.story.housewarming) ui.showHousewarming();
@@ -263,6 +315,12 @@ if (new URLSearchParams(location.search).has('integration-test')) {
     previewAt: (x, z) => decorating.preview(x, z),
     currentScene: () => currentScene,
     actorCount: () => town.actors.length,
+    districts: () => ({
+      downtown:town.districts.downtown.interactables.length,
+      entertainment:town.districts.entertainment.interactables.length,
+      sites:town.districtSites.map(site=>({id:site.id,entrance:[...site.entrance],district:site.district}))
+    }),
+    festivalGame: () => activeFestivalGame,
     camera: () => cameraRig.state,
     playerPosition: () => ({ ...playerPosition }),
     rotateCamera: (dx,dy) => cameraRig.orbit(dx,dy),
