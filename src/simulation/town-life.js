@@ -41,16 +41,18 @@ export const RESIDENTS=Object.freeze([
 ].map(row=>Object.freeze(row)));
 
 export const DAY_LENGTH=1320;
-export const ACTIVITIES=Object.freeze(['resting','walking','working','shopping','socializing','returning_home']);
+export const ACTIVITIES=Object.freeze(['resting','walking','working','shopping','socializing','returning_home','waiting','attending_event','delivery']);
 
 /** Time-of-day is expressed in existing Clover Hollow 22-minute day seconds. */
 export function getScheduleActivity(daySeconds,ordinal=0){
   const time=((daySeconds+ordinal%4*13)%DAY_LENGTH+DAY_LENGTH)%DAY_LENGTH;
   if(time<170||time>=1190)return 'resting';
-  if(time<280||time>=915&&time<1060)return 'walking';
+  if(time<225)return 'delivery';
+  if(time<300)return 'walking';
   if(time<570)return 'working';
-  if(time<730)return 'shopping';
+  if(time<735)return 'shopping';
   if(time<915)return 'socializing';
+  if(time<1060)return 'attending_event';
   return 'returning_home';
 }
 const CLOSE=.18;
@@ -60,8 +62,10 @@ function residentDestination(person,index,daySeconds,activity){
   const day=Math.floor(daySeconds/DAY_LENGTH);
   if(activity==='resting'||activity==='returning_home')return person.home;
   if(activity==='working')return person.work;
+  if(activity==='delivery')return index%2?PLACES.oldTown:PLACES.merchantArcade;
+  if(activity==='attending_event')return index%2?PLACES.festivalGreen:PLACES.lanternFountain;
   if(activity==='shopping'){
-    const stores=[PLACES.bakery,PLACES.general,PLACES.furniture];
+    const stores=[PLACES.bakery,PLACES.general,PLACES.furniture,PLACES.oldTown,PLACES.merchantArcade,PLACES.theatre];
     return stores[(day+index)%stores.length];
   }
   if(activity==='socializing')return PLAZA_SOCIAL_SPOTS[(index+day)%PLAZA_SOCIAL_SPOTS.length];
@@ -70,7 +74,9 @@ function residentDestination(person,index,daySeconds,activity){
 }
 const VISITOR_DESTINATIONS=Object.freeze([
   PLACES.market,PLACES.bakery,PLACES.furniture,PLACES.plazaEast,
-  PLACES.marketEast,PLACES.general,PLACES.square,PLACES.orchard
+  PLACES.marketEast,PLACES.general,PLACES.square,PLACES.orchard,
+  PLACES.oldTown,PLACES.merchantArcade,PLACES.lanternFountain,
+  PLACES.festivalGreen,PLACES.theatre,PLACES.arcade,PLACES.musicHall
 ]);
 const VISITOR_PALETTE=[0xc9a1b6,0xa9bf80,0x8caacc,0xd7ad7d,0xb4a2c5];
 
@@ -87,10 +93,10 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
     waypoint:0,moving:false,visible:true,activity:'resting',
     intention:'resting',lastGoal:null
   }));
-  const visitors=Array.from({length:Math.max(0,Math.min(5,visitorCount))},(_,i)=>{
-    const start=i%2===0?[-55,-9]:[52,-9];
+  const visitors=Array.from({length:Math.max(0,Math.min(24,visitorCount))},(_,i)=>{
+    const start=i%3===0?[-55,-9]:i%3===1?[52,-9]:[9,-60];
     return {id:`visitor-${i}`,name:`Visitor ${i+1}`,
-      kind:['cat','bunny','kid','dog','bear'][i],shirt:VISITOR_PALETTE[i],
+      kind:['cat','bunny','kid','dog','bear'][i%5],shirt:VISITOR_PALETTE[i%5],
       visitor:true,ordinal:i,seed:20+i,phase:i*1.6,home:start,
       x:start[0],z:start[1],target:[...start],route:[],waypoint:0,
       moving:false,visible:false,active:false,activity:'resting',
@@ -114,7 +120,7 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
       let activity,goal;
       if(a.visitor){
         const dayTime=((time%DAY_LENGTH)+DAY_LENGTH)%DAY_LENGTH;
-        const active=dayTime>=280&&dayTime<1070;
+        const active=dayTime>=190+i%4*22&&dayTime<1130-i%5*16;
         if(!active){
           a.active=false;a.visible=false;a.moving=false;a.activity='resting';
           a.lastGoal=null;continue;
@@ -122,9 +128,9 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
         if(!a.active){
           a.active=true;a.x=a.home[0];a.z=a.home[1];a.lastGoal=null;
         }
-        const stop=(Math.floor(dayTime/125)+i*2)%VISITOR_DESTINATIONS.length;
+        const stop=(Math.floor(dayTime/135)+i*3)%VISITOR_DESTINATIONS.length;
         goal=VISITOR_DESTINATIONS[stop];
-        activity=stop%3===0?'shopping':stop%3===1?'socializing':'walking';
+        activity=dayTime>=900?'attending_event':stop%4===0?'shopping':stop%4===1?'socializing':stop%4===2?'waiting':'walking';
       }else{
         activity=getScheduleActivity(time,a.ordinal);
         goal=residentDestination(a,a.ordinal,time,activity);
