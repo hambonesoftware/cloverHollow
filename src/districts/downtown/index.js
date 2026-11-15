@@ -118,8 +118,6 @@ export function createDowntownDistrict(scene,{sites=[],seed=1,quality='medium'}=
    // Exact approved source implementation, including its roof profile and instanced curved shingles.
    const p={w,d,wallHeight:civic.has(kind)?4.7:4.25,roofOverhang:.3+rng()*.22,roofCurvature:.78+rng()*.28,palette};
    buildApprovedCottage(g,p,rng,{moonspire:kind==='town-hall'||kind==='library'});
-   if(!civic.has(kind))awning(g,Math.min(w*.7,5),front+.4,rng);
-   if(['bakery','cafe','tailor','bookshop','florist','furniture','general-goods'].includes(kind))balconies(g,w,front+.08,rng);
    landmark(g,kind,w,d,palette,rng);
    sign(g,site.name||site.id,w,front+.64);
    // Approved roof geometry remains the authoritative shell. Decorations
