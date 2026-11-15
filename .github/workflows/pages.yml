@@ -45,6 +45,15 @@ jobs:
           node --check src/world/layout.js
           node --check src/world/navigation.js
           node --check src/simulation/town-life.js
+          node --check src/world/district-plan.js
+          node --check src/city/infrastructure.js
+          node --check src/city/district-interactions.js
+          node --check src/districts/downtown/index.js
+          node --check src/districts/entertainment/index.js
+          node --check src/services/downtown/index.js
+          node --check src/civic/interior.js
+          node --check src/activities/entertainment/index.js
+          node --check src/events/entertainment/index.js
           node --check src/interiors/dollhouse.js
           node --check src/interiors/placement-controller.js
           node --check src/interiors/room-walker.js

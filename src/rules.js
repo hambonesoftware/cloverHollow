@@ -32,7 +32,7 @@ export function initialSave() {
     version: 1, deed: null, petals: 165, gifts: {}, supplies: { 'Welcome Seeds': 3 },
     inventory: { ...STARTING_FURNITURE },
     placements: STARTER_PLACEMENTS.map(p => ({ ...p })),
-    town: { x: 1.5, z: 8.5 }, daySeconds: 110, greeting: false, outfit: 'Mint',
+    town: { x: 1.5, z: 8.5 }, daySeconds: 420, greeting: false, outfit: 'Mint',
     scene: 'town', nextFurnitureId: 1,
     story: { housewarming: false, homeVisits: 0, conversations: {} }
   };

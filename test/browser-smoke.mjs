@@ -94,6 +94,86 @@ try {
   await page.locator('#toolbar [data-action="leave"]').click();
   assert.equal(await page.evaluate(() => window.__cloverTest.state().scene), 'town');
 
+  await mkdir(resolve(root,'test-results'),{recursive:true});
+  // Validate the actual merged downtown and entertainment factory output.
+  const districtInfo=await page.evaluate(()=>window.__cloverTest.districts());
+  assert.ok(districtInfo.downtown>=12,'downtown service interactables must be mounted');
+  assert.ok(districtInfo.entertainment>=5,'entertainment venue interactions must be mounted');
+  assert.ok(districtInfo.sites.length>=14,'downtown, venues, festival green and gardens must all be registered');
+
+  // Post Office: the first registered service is receiving mail. A real
+  // UI click must award a one-time keepsake through the existing save model.
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(-59,-70)),true);
+  await page.locator('#toolbar [data-action="interact"]').click();
+  await page.locator('#modal-host [data-action="district-item:0"]').click();
+  assert.equal(await page.evaluate(()=>
+    window.__cloverTest.state().gifts['Mabel’s Friendly Letter']),1);
+  await page.locator('#modal-host [data-action="dismiss"]').click();
+
+  // The newly registered Town Hall is a different destination from the mayor,
+  // and its public calendar should be a real interactive menu.
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(-2,-94.5)),true);
+  await page.locator('#toolbar [data-action="interact"]').click();
+  await page.locator('#modal-host [data-action="district-item:0"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Moonbeam Matinee/);
+  await page.locator('#modal-host [data-action="dismiss"]').click();
+  await page.screenshot({path:resolve(root,'test-results/downtown-desktop.png')}).catch(()=>{});
+
+  // Lantern Quarter: play the actual model-driven theatre game through its
+  // mobile-friendly choice buttons, claim reward, then replay another venue.
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(21,-83.5)),true);
+  await page.locator('#toolbar [data-action="interact"]').click();
+  await page.locator('#modal-host [data-action="district-item:0"]').click();
+  for(let round=0;round<3;round++){
+    const prompt=await page.evaluate(()=>window.__cloverTest.festivalPrompt());
+    assert.ok(prompt,'theatre activity must expose an active round');
+    await page.locator('#modal-host [data-action="activity-choice:'+prompt.target+'"]').click();
+  }
+  assert.equal(await page.evaluate(()=>
+    window.__cloverTest.state().gifts['Moonbeam playbill']),1);
+  await page.locator('#modal-host [data-action="dismiss"]').click();
+
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(40,-83.5)),true);
+  await page.locator('#toolbar [data-action="interact"]').click();
+  await page.locator('#modal-host [data-action="district-item:0"]').click();
+  for(let round=0;round<5;round++){
+    const prompt=await page.evaluate(()=>window.__cloverTest.festivalPrompt());
+    assert.ok(prompt,'arcade ring toss must offer five rounds');
+    const selected=Math.round(prompt.target*4);
+    await page.locator('#modal-host [data-action="activity-choice:'+selected+'"]').click();
+  }
+  assert.equal(await page.evaluate(()=>
+    window.__cloverTest.state().gifts['Moonring ribbon']),1);
+  await page.locator('#modal-host [data-action="dismiss"]').click();
+  await page.screenshot({path:resolve(root,'test-results/lantern-quarter-desktop.png')}).catch(()=>{});
+
+  // Public festival and garden are genuine walk-through destinations. They
+  // must remain interactable without adding solid building collisions.
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(31,-96)),true);
+  await page.waitForTimeout(250);
+  await page.screenshot({path:resolve(root,'test-results/festival-green-desktop.png')}).catch(()=>{});
+  await page.locator('#toolbar [data-action="interact"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Lantern Festival Green/);
+  await page.locator('#modal-host [data-action="district-item:0"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Moonring Toss/);
+  await page.locator('#modal-host [data-action="activity-cancel"]').click();
+
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(20,-131)),true);
+  await page.locator('#toolbar [data-action="interact"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Starlight Gardens/);
+  await page.locator('#modal-host [data-action="district-item:0"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Fireflies drift/);
+  await page.locator('#modal-host [data-action="dismiss"]').click();
+
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>Boolean(window.__cloverTest));
+  assert.equal(await page.evaluate(()=>
+    window.__cloverTest.state().gifts['Mabel’s Friendly Letter']),1);
+  assert.equal(await page.evaluate(()=>
+    window.__cloverTest.state().gifts['Moonbeam playbill']),1);
+  assert.equal(await page.evaluate(()=>
+    window.__cloverTest.state().gifts['Moonring ribbon']),1);
+
   // Real pointer gestures must move the camera, not accidentally open dialogue.
   const cameraBefore=await page.evaluate(()=>window.__cloverTest.camera());
   await page.mouse.move(520,470);
@@ -106,10 +186,17 @@ try {
   const cameraZoomed=await page.evaluate(()=>window.__cloverTest.camera());
   assert.ok(cameraZoomed.zoom<cameraDragged.zoom,'wheel should zoom into the town');
 
+  // Release the desktop WebGL context before opening a second software-rendered
+  // Three.js scene. Two simultaneous large towns can exhaust SwiftShader memory.
+  await page.screenshot({path:resolve(root,'test-results/town-desktop.png')});
+  await page.close();
+  page=null;
+
   // Exercise the actual touch events on a portrait-sized screen.
+  // DPR 1 preserves touch/mobile layout while keeping headless software GL viable.
   const mobileContext=await browser.newContext({
     viewport:{width:390,height:844},
-    deviceScaleFactor:2,isMobile:true,hasTouch:true
+    deviceScaleFactor:1,isMobile:true,hasTouch:true
   });
   const mobile=await mobileContext.newPage();
   mobile.on('pageerror',error=>errors.push('mobile: '+error.message));
@@ -139,11 +226,17 @@ try {
   assert.ok(Math.hypot(afterTouch.x-beforeTouch.x,afterTouch.z-beforeTouch.z)>.25,
     'touch joystick should move the player in the actual Three.js town');
   await mkdir(resolve(root,'test-results'),{recursive:true});
-  await page.screenshot({path:resolve(root,'test-results/town-desktop.png')});
+  const phoneSite=await mobile.evaluate(()=>window.__cloverTest.townPosition(-39,-94));
+  assert.equal(phoneSite,true,'phone should navigate to the Old Town pedestrian lane');
+  await mobile.waitForTimeout(350);
+  await mobile.screenshot({path:resolve(root,'test-results/downtown-phone-portrait.png')});
+  assert.equal(await mobile.evaluate(()=>window.__cloverTest.townPosition(31,-102)),true);
+  await mobile.waitForTimeout(350);
+  await mobile.screenshot({path:resolve(root,'test-results/lantern-quarter-phone-portrait.png')});
   await mobile.screenshot({path:resolve(root,'test-results/town-phone-portrait.png')});
   await mobileContext.close();
   assert.deepEqual(errors, [], 'No uncaught errors while playing');
-  console.log('PASS: town, deed, furniture, reload, camera orbit/zoom, mobile joystick, and exit.');
+  console.log('PASS: town, deed, decorating, post office, Town Hall, theatre, arcade, persistent keepsakes, camera gestures and mobile joystick.');
 } catch (error) {
   await mkdir(resolve(root, 'test-results'), { recursive: true });
   if (page) await page.screenshot({ path: resolve(root,'test-results/browser-failure.png'), fullPage: true }).catch(() => {});

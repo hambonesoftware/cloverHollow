@@ -6,8 +6,10 @@ import { createFairyLandscape } from './environment/landscape.js';
 import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from './world/layout.js';
 import { createPedestrianGraph, findPedestrianRoute } from './world/navigation.js';
 import { createNpcSimulation, DAY_LENGTH } from './simulation/town-life.js';
-import { DISTRICT_SITES, WORLD_BOUNDS } from './world/district-plan.js';
+import { DISTRICT_SITES, SCENIC_ENTERTAINMENT_SITES, DISTRICT_PATHS, WORLD_BOUNDS } from './world/district-plan.js';
 import { createCityInfrastructure } from './city/infrastructure.js';
+import { createDowntownDistrict } from './districts/downtown/index.js';
+import { createEntertainmentDistrict } from './districts/entertainment/index.js';
 
 const rnd=n=>{const s=Math.sin(n*127.1+31.7)*43758.5453;return s-Math.floor(s);};
 const color={grass:0xa8cda0,road:0xe9d6b4,roadEdge:0x91b29b,wood:0xb18c6c};
@@ -51,8 +53,10 @@ export function createTown(scene){
     (WORLD_BOUNDS.minZ+WORLD_BOUNDS.maxZ)/2));
   const cityInfrastructure=createCityInfrastructure(scene,{quality:'mobile'});
 
-  // A gentle, readable network of village streets, local lanes and short paths.
-  for(let i=0;i<PATH_SEGMENTS.length;i++){
+  // Original village roads live here; district streets are rendered once by
+  // createCityInfrastructure, avoiding duplicate paving and extra draw calls.
+  // All paths still remain in PATH_SEGMENTS for the shared pedestrian graph.
+  for(let i=0;i<PATH_SEGMENTS.length-DISTRICT_PATHS.length;i++){
     const [x0,z0,x1,z1]=PATH_SEGMENTS[i],wide=i<13;
     const w=(wide?5.5:1.8)+(x0===x1?0:Math.abs(x1-x0));
     const d=(wide?5.5:1.8)+(z0===z1?0:Math.abs(z1-z0));
@@ -89,14 +93,33 @@ export function createTown(scene){
     scene.add(sphere(.12,0xc69e77,x,.95,z));
   }
 
+  // One authoritative renderer for each destination: don't double-render the
+  // generic placeholder facades beneath the real districts.
+  const downtownSites=[
+    ...DISTRICT_SITES.filter(site=>site.district==='downtown'),
+    {...BUILDINGS.find(site=>site.id==='mayor'),district:'downtown',
+      kind:'mayor-office',name:"Mayor Thistle's Office",
+      seed:'clover-hollow:mayor-office'}
+  ];
+  const entertainmentSites=[...DISTRICT_SITES.filter(site=>site.district==='entertainment'),
+    ...SCENIC_ENTERTAINMENT_SITES];
+  const downtownDistrict=createDowntownDistrict(scene,{sites:downtownSites,seed:'clover-downtown',quality:'mobile'});
+  const entertainmentDistrict=createEntertainmentDistrict(scene,{sites:entertainmentSites,seed:'lantern-quarter',quality:'mobile'});
+  const districtActions=new Map();
+  for(const entry of [...downtownDistrict.interactables,...entertainmentDistrict.interactables]){
+    if(!districtActions.has(entry.siteId))districtActions.set(entry.siteId,[]);
+    districtActions.get(entry.siteId).push({
+      id:entry.id,label:entry.label,action:entry.action,kind:entry.kind
+    });
+  }
   const buildingModels=new Map(),lotSigns=new Map();
   const buildings=BUILDINGS.map(b=>({
     id:b.id,x:b.x,z:b.entrance[1],centerZ:b.z,w:b.w,d:b.d,
     name:b.name,kind:b.kind,entrance:[...b.entrance],lotIndex:b.lotIndex??null
   }));
   for(const b of BUILDINGS){
-    // District sites render with the approved procedural fairy architecture
-    // until Worker 2/3 renderer modules are available. No imports required.
+    // District workers own these facades, including the mayor's annex.
+    if(b.district || b.id==='mayor')continue;
     const model=createFairyBuilding(b,{
       family:b.kind==='civic'?'moonspire':
         b.kind==='bakery'?'storybook':
@@ -225,9 +248,11 @@ export function createTown(scene){
     return {...data,model};
   });
 
-  const focusables=BUILDINGS.map(b=>({
+  const focusables=[...BUILDINGS,...SCENIC_ENTERTAINMENT_SITES].map(b=>({
     id:b.id,x:b.entrance[0],z:b.entrance[1],r:b.kind==='lot'?3.4:3.2,
     name:b.name,kind:b.kind,lotIndex:b.lotIndex??null,
+    district:b.district??(b.id==='mayor'?'downtown':null),
+    actions:districtActions.get(b.id)??[],
     entrance:[...b.entrance]
   }));
   function getNearestBuilding(x,z,radius=3.5){
@@ -273,6 +298,8 @@ export function createTown(scene){
       if(Number.isFinite(data.heading))model.rotation.y=data.heading;
       animatePerson(model,t,data.moving,data.phase);
     }
+    downtownDistrict.update(dt,daySeconds);
+    entertainmentDistrict.update(dt,daySeconds);
     const fraction=((daySeconds%DAY_LENGTH)+DAY_LENGTH)%DAY_LENGTH/DAY_LENGTH;
     const bright=Math.max(.28,Math.min(1,Math.sin(Math.PI*(fraction*.9+.07))*1.2));
     ambient.intensity=1.1+bright*.95;sun.intensity=.65+bright*1.75;
@@ -282,7 +309,9 @@ export function createTown(scene){
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
-    cityInfrastructure,districtSites:DISTRICT_SITES,
+    cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
+    districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
+    districtActions,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation};
 }

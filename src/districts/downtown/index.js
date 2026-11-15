@@ -20,10 +20,31 @@ function clock(root,x,y,z){
  const rim=new THREE.Mesh(new THREE.TorusGeometry(.73,.09,8,32),fairyMaterial(0xb99565));rim.position.set(x,y,z+.035);root.add(rim);
  block(root,.065,.51,.06,0x625049,x,y+.18,z+.06);block(root,.37,.065,.06,0x625049,x+.13,y,z+.07);
 }
-function sign(root,name,w,z){ // physical signboard; host may add localized text via UI
- block(root,Math.min(w*.75,4.6),.56,.17,0x87604d,0,3.66,z);
- for(const x of [-Math.min(w*.32,1.9),Math.min(w*.32,1.9)])orb(root,.10,0xf5cf88,x,3.66,z+.12);
- root.userData.signText=name;
+function sign(root,name,w,z){
+  block(root,Math.min(w*.75,4.6),.56,.17,0x87604d,0,3.66,z);
+  for(const x of [-Math.min(w*.32,1.9),Math.min(w*.32,1.9)])orb(root,.10,0xf5cf88,x,3.66,z+.12);
+  root.userData.signText=name;
+  // A blank plaque cannot identify a post office or library from the street.
+  // Text remains a sprite overlay so the procedural geometry is unchanged.
+  if(typeof document!=='undefined'){
+    const canvas=document.createElement('canvas');
+    canvas.width=512;canvas.height=96;
+    const ctx=canvas.getContext('2d');
+    if(ctx){
+      ctx.fillStyle='#fff0d5';
+      ctx.font='bold 35px system-ui';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(name).toUpperCase(),256,48,480);
+      const texture=new THREE.CanvasTexture(canvas);
+      texture.colorSpace=THREE.SRGBColorSpace;
+      const sprite=new THREE.Sprite(new THREE.SpriteMaterial({
+        map:texture,transparent:true,depthWrite:false
+      }));
+      sprite.position.set(0,3.68,z+.18);
+      sprite.scale.set(Math.min(w*.72,4.5),.53,1);
+      root.add(sprite);
+    }
+  }
 }
 function awning(root,w,z,rng){
  const count=Math.max(4,Math.floor(w/.65)),strip=w/count;
@@ -115,5 +136,11 @@ export function createDowntownDistrict(scene,{sites=[],seed=1,quality='medium'}=
  }
  let disposed=false;
  return {root,interactables,update(dt,daySeconds){if(disposed)return;for(const item of animated)item.root.userData.daySeconds=daySeconds;},
-  dispose(){if(disposed)return;disposed=true;scene.remove(root);root.clear(); // Geometry and materials may be shared by the approved generator caches.}};
+  dispose(){
+    if(disposed)return;
+    disposed=true;
+    scene.remove(root);
+    root.traverse(child=>{if(child.isSprite){child.material.map?.dispose();child.material.dispose();}});
+    root.clear(); // Approved-generator geometries and materials may be shared caches.
+  }};
 }

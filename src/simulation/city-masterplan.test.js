@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from '../world/layout.js';
-import { DISTRICTS, DISTRICT_SITES, DISTRICT_PATHS, WORLD_BOUNDS } from '../world/district-plan.js';
+import { DISTRICTS, DISTRICT_SITES, SCENIC_ENTERTAINMENT_SITES, DISTRICT_PATHS, WORLD_BOUNDS } from '../world/district-plan.js';
 import { createPedestrianGraph, findPedestrianRoute, isRouteClear } from '../world/navigation.js';
 import { RESIDENTS, ACTIVITIES, createNpcSimulation } from './town-life.js';
 import { LOTS } from '../rules.js';
@@ -60,4 +60,18 @@ test('simulated visitors use districts without crossing obstacles',()=>{
       if(actor.route.length)assert.ok(isRouteClear(actor.route,walkable),actor.id+' route blocked');
     }
   }
+});
+
+test('festival green and starlight gardens remain public, walk-through attractions',()=>{
+  const {walkable}=createOutdoorCollision();
+  const graph=createPedestrianGraph(PATH_SEGMENTS,walkable);
+  assert.deepEqual(SCENIC_ENTERTAINMENT_SITES.map(site=>site.kind),['festival','garden']);
+  for(const site of SCENIC_ENTERTAINMENT_SITES){
+    assert.ok(!BUILDINGS.some(b=>b.id===site.id),'scenic lawn must not become a building obstacle');
+    assert.ok(walkable(...site.entrance),'public venue entrance must remain walkable: '+site.id);
+    const route=findPedestrianRoute(graph,PLACES.square,site.entrance);
+    assert.ok(route&&route.length>1,'public venue must be reachable: '+site.id);
+    assert.ok(isRouteClear(route,walkable),'unsafe public venue route: '+site.id);
+  }
+  assert.ok(walkable(31,-102),'festival through-promenade must remain open');
 });
