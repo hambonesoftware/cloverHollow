@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { createChibi } from './characters/chibi.js';
+import { animateLegacyCharacter, updateCharacterAnimation } from './characters/animation.js';
 
 // Shared procedural resources: many buildings and villagers, few GPU uploads.
 // Never mutate a material returned from this cache on an individual mesh.
@@ -43,63 +45,17 @@ export function sign(text,width=5) {
   const s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true}));
   s.scale.set(width,width*112/512,1);return s;
 }
+/**
+ * Stable legacy character API; the new rig is accessible as group.userData.rig.
+ * For velocity-driven animation, use updateCharacterAnimation(group,dt,options).
+ */
 export function makePerson(kind='kid',colors={}) {
-  const g=new THREE.Group();
-  const skin=colors.skin??(kind==='frog'?0x9cc898:kind==='bear'?0xb18b6d:kind==='duck'?0xffedc7:0xf5cba9);
-  const shirt=colors.shirt??0x83b6a3,hair=colors.hair??0x66524d;
-  g.add(sphere(.58,skin,0,1.54,0));
-  const torso=sphere(.4,shirt,0,.8,0);torso.scale.set(1,1.1,.88);g.add(torso);
-  const legs=[],arms=[];
-  for(const side of [-1,1]){
-    const l=new THREE.Group();l.position.set(side*.19,.48,0);
-    l.add(cylinder(.12,.13,.4,colors.trousers??0x668b8b,0,-.2,0));
-    const boot=sphere(.16,0x644f50,0,-.39,.1);boot.scale.set(1,.65,1.3);l.add(boot);g.add(l);legs.push(l);
-    const a=new THREE.Group();a.position.set(side*.39,1.04,0);
-    const sleeve=sphere(.16,shirt,0,-.16,0);sleeve.scale.set(.8,1.45,.82);
-    a.add(sleeve,sphere(.12,skin,0,-.35,.03));g.add(a);arms.push(a);
-    const eye=sphere(.065,0x453742,side*.235,1.57,.54);eye.scale.z=.6;g.add(eye);
-    g.add(sphere(.025,0xffffff,side*.235+.02,1.595,.574));
-    const blush=sphere(.105,0xe9a4a7,side*.4,1.38,.47);blush.scale.set(1,.55,.25);g.add(blush);
-  }
-  const smile=new THREE.Mesh(new THREE.TorusGeometry(.052,.015,5,12,Math.PI),material(0x704b50));
-  smile.rotation.z=Math.PI;smile.position.set(0,1.38,.59);g.add(smile);
-  if(kind==='kid'){
-    const cap=sphere(.61,hair,0,1.91,-.06);cap.scale.set(1.03,.55,1.05);g.add(cap);
-    for(const s of [-1,1])g.add(sphere(.18,hair,s*.43,1.91,.07));
-  }
-  if(kind==='bunny')for(const s of [-1,1]){
-    const e=sphere(.18,skin,s*.25,2.23,-.03);e.scale.set(.7,2.6,.8);e.rotation.z=-s*.2;g.add(e);
-  }
-  if(kind==='cat')for(const s of [-1,1]){
-    const e=cone(.26,.5,skin,s*.39,2.16,-.05,4);e.rotation.y=Math.PI/4;g.add(e);
-  }
-  if(kind==='bear')for(const s of [-1,1])g.add(sphere(.2,skin,s*.45,1.99,-.06));
-  if(kind==='frog')for(const s of [-1,1])g.add(sphere(.2,skin,s*.4,1.97,-.05));
-  if(kind==='duck'){const bill=sphere(.21,0xf0b16a,0,1.41,.56);bill.scale.set(1.2,.46,1.2);g.add(bill);}
-  if(kind==='dog')for(const s of [-1,1]){
-    const ear=sphere(.24,0x9a745e,s*.52,1.86,-.06);ear.scale.set(.68,1.45,.65);ear.rotation.z=-s*.32;g.add(ear);
-  }
-  if(kind==='hedgehog'){
-    for(let n=0;n<13;n++){
-      const a=(n/12-.5)*Math.PI*1.25;
-      const spike=cone(.13,.4,0x886b5b,Math.sin(a)*.5,1.67+Math.cos(a)*.41,-.35,5);
-      spike.rotation.z=-a;g.add(spike);
-    }
-    for(const s of [-1,1]){
-      const lens=new THREE.Mesh(new THREE.TorusGeometry(.16,.023,6,17),material(0xb38d5d));
-      lens.position.set(s*.23,1.58,.593);g.add(lens);
-    }
-    g.add(box(.13,.03,.03,0xb38d5d,0,1.58,.59));
-  }
-  g.userData.legs=legs;g.userData.arms=arms;
-  return g;
+  return createChibi(kind,colors);
 }
-export function animatePerson(g,time,moving=false,phase=0){
-  const swing=moving?Math.sin(time*8+phase)*.42:0;
-  g.userData.legs[0].rotation.x=swing;g.userData.legs[1].rotation.x=-swing;
-  g.userData.arms[0].rotation.x=-swing*.7;g.userData.arms[1].rotation.x=swing*.7;
-  g.rotation.z=Math.sin(time*1.6+phase)*(moving?.02:.008);
+export function animatePerson(group,time,moving=false,phase=0){
+  return animateLegacyCharacter(group,time,moving,phase);
 }
+export { updateCharacterAnimation };
 export function tree(x,z,scale=1,color=0x85b680) {
   // Rounded layered tree crowns with branch structure; a hero specimen
   // for the orchard and plaza, distinct from the instanced background trees.
