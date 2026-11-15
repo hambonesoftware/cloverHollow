@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { LOTS } from './rules.js';
-import { box, sphere, cylinder, flat, sign, building, makePerson, animatePerson, tree, flower, gardenBench, lampPost } from './art.js';
+import { box, sphere, cylinder, flat, sign, makePerson, animatePerson, tree, flower, gardenBench, lampPost } from './art.js';
+import { createFairyBuilding } from './architecture/generator.js';
+import { createFairyLandscape } from './environment/landscape.js';
 import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from './world/layout.js';
 import { createPedestrianGraph, findPedestrianRoute } from './world/navigation.js';
 import { createNpcSimulation, DAY_LENGTH } from './simulation/town-life.js';
@@ -88,9 +90,12 @@ export function createTown(scene){
     name:b.name,kind:b.kind,entrance:[...b.entrance],lotIndex:b.lotIndex??null
   }));
   for(const b of BUILDINGS){
-    const model=building({
-      x:b.x,z:b.z,w:b.w,d:b.d,wall:b.wall,roof:b.roof,
-      name:b.name.toUpperCase(),shop:b.kind!=='home'&&b.kind!=='lot'
+    const model=createFairyBuilding(b,{
+      family:b.kind==='civic'?'moonspire':
+        b.kind==='bakery'?'storybook':
+        b.kind==='furniture'?'storybook':
+        b.kind==='shop'?'toadstool':undefined,
+      seed:'clover-hollow:'+b.id
     });
     scene.add(model);buildingModels.set(b.id,model);
     const front=b.z+b.d/2;
@@ -100,27 +105,10 @@ export function createTown(scene){
       for(let k=0;k<3;k++)scene.add(flower(b.x+offset+(k-1)*.27,front+.58,
         [0xe9999c,0xecc77c,0xddd2ec][k]));
     }
-    if(b.kind==='bakery'||b.kind==='furniture'||b.kind==='shop'){
-      const awning=box(5,.16,1.35,b.kind==='bakery'?0xcf8093:
-        b.kind==='furniture'?0x91a787:0x79a6a8,0,3.35,b.d/2+.75);
-      model.add(awning);
-      for(const dx of [-2.1,2.1])model.add(box(.08,.75,.08,0xffe7cc,dx,2.98,b.d/2+1.24));
-      if(b.kind==='bakery'){
-        for(let i=0;i<3;i++)model.add(sphere(.35,0xdca77b,-1+i,2.65,b.d/2+1.2));
-      }
-    }
-    if(b.kind==='civic'){
-      for(const dx of [-4,4]){
-        model.add(cylinder(.33,.33,4.5,0xf2e0bb,dx,2.3,b.d/2+.6,10));
-        model.add(box(.72,.25,.72,0xc4aa85,dx,4.55,b.d/2+.6));
-      }
-      model.add(box(11,.36,2,0x799b95,0,4.5,b.d/2+.5));
-    }
+    // The new generator owns the integrated roof and storefront facade.
+    // Avoid old floating awnings, roof slabs and column assemblies.
     if(b.kind==='home'||b.kind==='lot'){
-      model.add(box(.57,1.45,.63,0xc99a7f,-b.w*.27,5.18,-b.d*.18));
-      model.add(box(.85,.23,.88,0xe6c6a5,-b.w*.27,5.93,-b.d*.18));
-      for(const dx of [-b.w/2-.4,b.w/2+.4])
-        scene.add(box(.16,.68,4.1,0xb49a7d,b.x+dx,.37,b.z+b.d/2+3.1));
+      // Garden fences stop short of entrances and stay decorative.
       if(b.kind==='lot'){
         const available=sign('AVAILABLE HOME',4.2);
         available.position.set(b.x,2.9,front+2.8);scene.add(available);
@@ -212,6 +200,12 @@ export function createTown(scene){
     scene.add(flower(x,z,[0xf0a8bd,0xf2d180,0xdfd7ef][i%3]));
   }
 
+  // New batched foliage and low garden detailing obey the existing walkable
+  // function; neither collision footprints nor pedestrian routes are changed.
+  const landscape=createFairyLandscape(scene,{
+    buildings:BUILDINGS,walkable,routePoints,seed:'clover-hollow-landscape-v1'
+  });
+
   const player=makePerson('kid',{shirt:0x7aaf96,hair:0x634f4e,trousers:0x6a91a4});
   scene.add(player);
   const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:5});
@@ -279,7 +273,7 @@ export function createTown(scene){
   }
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
-    locations:PLACES,obstacles,pedestrianGraph,findRoute,
+    locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation};
 }
