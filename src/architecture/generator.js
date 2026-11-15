@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { designBuilding, seeded } from './design.js';
+import { buildApprovedCottage } from './approved-cottage.js';
 
 const materialCache=new Map();
 function mat(color,roughness=.87) {
@@ -284,9 +285,11 @@ export function createFairyBuilding(definition,config={}) {
   root.userData={buildingId:p.id,family:p.family,entrance:[...p.entrance],
     collisionFootprint:{x:p.x,z:p.z,w:p.w,d:p.d}};
   const body=new THREE.Group();root.add(body);
-  if(p.family==='storybook')storybook(body,p,rng);
+  // Storybook and Moonspire use the actual approved in-chat demo meshes.
+  // Do not substitute the older approximation found in this file.
+  if(p.family==='storybook')buildApprovedCottage(body,p,rng);
   if(p.family==='toadstool')toadstool(body,p,rng);
-  if(p.family==='moonspire')moonspire(body,p,rng);
+  if(p.family==='moonspire')buildApprovedCottage(body,p,rng,{moonspire:true});
   if(p.family==='hobbit')hobbit(body,p,rng);
   if(p.garden)flowerBeds(body,p,rng);
   return root;
