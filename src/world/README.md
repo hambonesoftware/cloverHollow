@@ -12,7 +12,7 @@ This package owns the **outdoor view and pedestrian/NPC simulation only**. It do
 | --- | --- |
 | `player` | Existing Three.js player group; caller controls movement and camera. |
 | `actors` | Stable array of NPC view records, with `name`, `lines`, `model`, `x`, `z`, `activity`, `intention`, `visible` and `moving`. |
-| `focusables` | All 17 outdoor doors (4 public, 10 existing/resident homes, 3 player plots), each `{id,x,z,r,name,kind,lotIndex,entrance}`. |
+| `focusables` | All 16 outdoor doors (4 public, 10 existing/resident homes, 3 player plots), each `{id,x,z,r,name,kind,lotIndex,entrance}`. |
 | `buildings` | Building info with legacy entrance-centered `z`; `centerZ` is actual center. |
 | `walkable(x,z)` | True when a character may occupy the point, including a clearance margin around walls, water and the well. |
 | `update(dt,t,daySeconds)` | Advance simulation and refresh NPC meshes and natural day lighting. `dt` and `t` are in seconds. `daySeconds` is the existing 0–1320 clock (or longer continuous total). |
@@ -51,7 +51,7 @@ Standalone module tests (kept inside our allowed source area):
 node --test src/simulation/living-town.test.js
 ```
 
-These cover all 17 entrances, safe routes and deterministic navigation, plot identity, residents, six schedule activities, visitor budget, and a sampled full day of collision-free movement.
+These cover all 16 entrances, safe routes and deterministic navigation, plot identity, residents, six schedule activities, visitor budget, and a sampled full day of collision-free movement.
 
 The repository's `npm test` script currently only selects `test/*.test.js`. Updating that script or relocating the new test would exceed the file ownership for this parallel task. Integrators can include `src/simulation/*.test.js` in the common test command after merging.
 
