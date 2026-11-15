@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FURNITURE, ROOM, footprint } from '../rules.js';
 import { furniture as makeFurniture } from '../art.js';
+import { decorateFairyRoom } from './fairy-details.js';
 
 const COLORS = Object.freeze({
   wall: 0xffead6, wallSide: 0xf2dcc8, wood: 0xb87b55, trim: 0xfff7e8,
@@ -141,6 +142,10 @@ export function createDollhouse(scene, options = {}) {
   addWallWithWindows(root, 'z', depth, -width / 2,
     [{ center: -0.65, width: 1.65 }], COLORS.wallSide, wallHeight);
 
+  // The added architecture lives on the back/left walls and does not alter
+  // furniture footprints, pick rays, walking clearance, or save geometry.
+  decorateFairyRoom(root,{width,depth,height:wallHeight});
+
   // Tiny wall ornaments: an art print and a ceiling-free pendant.
   root.add(box(0.96, 0.76, 0.085, 0xa67e67, 0.05, 2.69, -depth / 2 + 0.22));
   root.add(box(0.76, 0.57, 0.09, 0x9bbba8, 0.05, 2.69, -depth / 2 + 0.29));
@@ -155,7 +160,7 @@ export function createDollhouse(scene, options = {}) {
   sunlight.shadow.camera.top = 9; sunlight.shadow.camera.bottom = -9;
   sunlight.shadow.normalBias = 0.025;
   root.add(sunlight);
-  const lamplight = new THREE.PointLight(0xffcc89, 19, 11, 2);
+  const lamplight = new THREE.PointLight(0xffcc89, 8, 12, 2);
   lamplight.position.set(-1.2, 3.35, -0.6);
   root.add(lamplight);
 
