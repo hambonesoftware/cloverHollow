@@ -221,10 +221,17 @@ export function createDollhouse(scene, options = {}) {
       ghost.traverse(node => {
         if (!node.isMesh) return;
         const materials = Array.isArray(node.material) ? node.material : [node.material];
-        node.material = materials.map(source =>
-          new THREE.MeshBasicMaterial({ color: source.color ?? 0xffffff,
-            transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
-        if (node.material.length === 1) node.material = node.material[0];
+        const ghostMaterials = materials.map(source => {
+          const baseColor = source.color?.clone() ?? new THREE.Color(0xffffff);
+          source.dispose();
+          const ghostMaterial = new THREE.MeshBasicMaterial({
+            color: baseColor, transparent: true, opacity: 0.55,
+            depthWrite: false, side: THREE.DoubleSide
+          });
+          ghostMaterial.userData.originalColor = baseColor.getHex();
+          return ghostMaterial;
+        });
+        node.material = ghostMaterials.length === 1 ? ghostMaterials[0] : ghostMaterials;
         node.castShadow = false; node.receiveShadow = false;
       });
       wrapper.add(ghost);
@@ -250,10 +257,11 @@ export function createDollhouse(scene, options = {}) {
     previewModel.userData.ghost.rotation.y = (((candidate.r ?? 0) % 4 + 4) % 4) * Math.PI / 2;
     // Purely visual feedback: the ViewModel remains the placement authority.
     previewModel.userData.tile.material.color.setHex(isValid ? 0x58c49b : 0xe97777);
+    const tint = new THREE.Color(isValid ? 0x7fc7a9 : 0xeb9690);
     previewModel.userData.ghost.traverse(node => {
       if (!node.isMesh) return;
       for (const m of Array.isArray(node.material) ? node.material : [node.material]) {
-        m.color.setHex(isValid ? 0x9ad8ba : 0xf39a94);
+        m.color.setHex(m.userData.originalColor ?? 0xffffff).lerp(tint, 0.42);
       }
     });
   }
@@ -289,7 +297,10 @@ export function createDollhouse(scene, options = {}) {
   }
   function dispose() {
     clearPreview();
-    for (const entry of objects.values()) cleanup(entry.model);
+    for (const entry of objects.values()) {
+      furnitureRoot.remove(entry.model);
+      cleanup(entry.model);
+    }
     objects.clear();
     root.traverse(object => {
       if (object.isLight) object.dispose?.();
