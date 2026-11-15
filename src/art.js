@@ -157,14 +157,6 @@ export function building({x,z,w=8,d=7,wall=0xffe9cd,roof=0xc98572,name='',shop=f
       side*run/2,4.04+rise/2,0);
     slope.rotation.z=-side*angle;
     g.add(slope);
-    for(let j=1;j<5;j++){
-      const seam=box(.035,.04,d+.93,0xe6c7aa,
-        side*run/2+side*(j-2.5)*run/5,
-        4.04+rise/2-(j-2.5)*rise/5,.02);
-      seam.rotation.z=-side*angle;
-      seam.visible=false; // reserved for a higher-quality desktop preset
-      g.add(seam);
-    }
   }
   const gable=new THREE.Shape();
   gable.moveTo(-w/2,4.02);gable.lineTo(0,5.74);gable.lineTo(w/2,4.02);gable.closePath();
