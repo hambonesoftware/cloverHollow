@@ -46,10 +46,10 @@ export function createCityInfrastructure(scene,{quality='mobile'}={}) {
   for(const landmark of DISTRICT_LANDMARKS){
     if(landmark.kind==='fountain'){
       const rim=new THREE.Mesh(new THREE.TorusGeometry(1.75,.24,8,28),mat(0xb4aca2));
-      rim.rotation.x=Math.PI/2;rim.position.set(landmark.x,.18,landmark.z);root.add(rim);
+      rim.rotation.x=Math.PI/2;rim.position.set(landmark.x+6,.18,landmark.z);root.add(rim);
       const pool=new THREE.Mesh(new THREE.CircleGeometry(1.55,28),mat(0x80c1d2));
-      pool.rotation.x=-Math.PI/2;pool.position.set(landmark.x,.08,landmark.z);root.add(pool);
-      sphere(root,.28,0xc5c5ae,landmark.x,.54,landmark.z);
+      pool.rotation.x=-Math.PI/2;pool.position.set(landmark.x+6,.08,landmark.z);root.add(pool);
+      sphere(root,.28,0xc5c5ae,landmark.x+6,.54,landmark.z);
     }else if(landmark.kind==='garden'){
       for(const dx of [-8,8])for(const dz of [-2,2])planter(root,landmark.x+dx,landmark.z+dz);
     }
