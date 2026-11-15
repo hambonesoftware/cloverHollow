@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { capsule,roundedBox,illustratedMesh,fairyMaterial,PALETTE } from '../visual/gfx.js';
 import { animationState } from './animation.js';
 
-const SKINS={kid:0xf2c9a7,cat:0xe7bd94,bunny:0xf1dfce,bear:0xb68c68,duck:0xffe9b4,dog:0xd4b18d,frog:0x9dca9e,hedgehog:0xc9ad91};
+const SKINS={fox:0xd69a62,squirrel:0xb98b62,mouse:0xb6a9a7,kid:0xf2c9a7,cat:0xe7bd94,bunny:0xf1dfce,bear:0xb68c68,duck:0xffe9b4,dog:0xd4b18d,frog:0x9dca9e,hedgehog:0xc9ad91};
 const at=(o,x,y,z)=>{o.position.set(x,y,z);return o;};
 function ell(r,color,x,y,z,sx=1,sy=1,sz=1,quality='medium'){
   const m=illustratedMesh(new THREE.SphereGeometry(r,quality==='low'?10:16,quality==='low'?8:12),color,{quality,outline:0});
@@ -45,7 +45,7 @@ export function createChibi(kind='kid',colors={},options={}){
     head.add(ell(.11,0xe9a5a4,side*.43,-.2,.445,1,.48,.22,quality));
   }
   let mouthZ=.61;
-  if(['cat','bear','dog','hedgehog'].includes(kind)){
+  if(['cat','bear','dog','hedgehog','fox','squirrel','mouse'].includes(kind)){
     head.add(ell(.23,kind==='bear'?0xe6c9a5:0xffe6d2,0,-.2,.51,1.24,.7,.65,quality));
     head.add(ell(.065,0x71515b,0,-.12,.66,1.1,.65,.75,quality));
     mouthZ=.65;
@@ -60,10 +60,10 @@ export function createChibi(kind='kid',colors={},options={}){
     head.add(ell(.62,hair,0,.36,-.08,1.04,.55,1.03,quality));
     for(const side of [-1,0,1])head.add(ell(.2,hair,side*.3,.43,.37,1,.65,.75,quality));
   }
-  if(kind==='cat'){
+  if(['cat','fox','squirrel','mouse'].includes(kind)){
     for(const side of [-1,1]){
       const ear=new THREE.Group();ear.position.set(side*.4,.48,0);
-      const cone=new THREE.Mesh(new THREE.ConeGeometry(.24,.47,12),fairyMaterial(skin));
+      const cone=new THREE.Mesh(new THREE.ConeGeometry(kind==='mouse'?.17:.24,kind==='fox'?.59:.47,12),fairyMaterial(skin));
       cone.rotation.z=-side*.3;ear.add(cone);
       const inside=ell(.12,0xe7a1a8,0,.04,.13,.75,1.3,.35,quality);ear.add(inside);
       head.add(ear);ears.push(ear);
@@ -78,10 +78,10 @@ export function createChibi(kind='kid',colors={},options={}){
       head.add(ear);ears.push(ear);
     }
   }
-  if(kind==='bear'||kind==='frog'){
+  if(kind==='bear'||kind==='frog'||kind==='mouse'){
     for(const side of [-1,1]){
       head.add(ell(.2,skin,side*.46,.44,-.02,1,1,.85,quality));
-      if(kind==='bear')head.add(ell(.11,0x9c6d65,side*.46,.44,.13,1,1,.4,quality));
+      if(kind==='bear'||kind==='mouse')head.add(ell(.11,0x9c6d65,side*.46,.44,.13,1,1,.4,quality));
     }
   }
   if(kind==='dog'){
@@ -115,13 +115,13 @@ export function createChibi(kind='kid',colors={},options={}){
   if(kind==='hedgehog'){
     const badge=ell(.12,0xe3c575,.26,.87,.35,1,.85,.35,quality);body.add(badge);
   }
-  const tail=['cat','dog','bunny'].includes(kind)?new THREE.Group():null;
+  const tail=['cat','dog','bunny','fox','squirrel','mouse'].includes(kind)?new THREE.Group():null;
   if(tail){
     tail.position.set(.2,.59,-.35);
-    tail.add(ell(kind==='bunny'?.16:.12,skin,0,0,-.12,1,kind==='bunny'?1:1.8,1,quality));
+    tail.add(ell(kind==='bunny'?.16:kind==='squirrel'?.29:kind==='fox'?.23:.12,skin,0,0,-.12,1,kind==='bunny'?1:1.8,1,quality));
     body.add(tail);
   }
-  const rig={body,head,legs,arms,eyes,ears,mouth,tail};
+  const rig={body,head,legs,arms,eyes,ears,mouth,tail,hands:arms.map(a=>a.children[a.children.length-1]),sockets:{leftHand:arms[0],rightHand:arms[1],back:body,head}};
   ears.forEach((ear,i)=>{ear.userData.offset=i*1.7;});
   root.userData.rig=rig;
   root.userData.animation=animationState();
