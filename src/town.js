@@ -287,6 +287,21 @@ export function createTown(scene,{quality='medium'}={}){
       heldProp:npc.heldProp,stationId:npc.stationId??null,
       routeError:npc.routeError??null}:null;
   };
+  function visualDiagnostics(){
+    let downtownProps=0;
+    downtownDistrict.root.traverse(node=>{
+      if(node.userData?.propType)downtownProps++;
+    });
+    return {
+      downtownProps,
+      dressedCitizens:[...actorModels.values()].filter(model=>!!model.userData.outfit).length,
+      professions:new Set(simulation.actors.map(actor=>actor.occupation).filter(Boolean)).size,
+      registeredStations:simulation.activityDirector?.stations.length??0,
+      activeCitizens:simulation.actors.filter(actor=>actor.visible).length,
+      lightingActive:!!storybookLighting.sun,
+      districtBuildings:downtownDistrict.root.children.length
+    };
+  }
   const updateNpcSimulation=(dt,daySeconds)=>simulation.advance(dt,daySeconds);
   function update(dt,t=0,daySeconds=0){
     simulation.advance(dt,daySeconds);
@@ -315,5 +330,5 @@ export function createTown(scene,{quality='medium'}={}){
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
     districtActions,storybookLighting,atmosphere,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
-    getPlayerLot,getNpcState,updateNpcSimulation};
+    getPlayerLot,getNpcState,updateNpcSimulation,visualDiagnostics};
 }
