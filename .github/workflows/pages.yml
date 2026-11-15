@@ -32,6 +32,7 @@ jobs:
           node --check src/visual/gfx.js
           node --check src/architecture/design.js
           node --check src/architecture/generator.js
+          node --check src/architecture/approved-cottage.js
           node --check src/environment/landscape.js
           node --check src/interiors/fairy-details.js
           node --check src/ui/app-ui.js

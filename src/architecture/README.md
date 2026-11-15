@@ -33,3 +33,25 @@ Run `node --test src/architecture/architecture.test.js`. The tests cover family 
 ## Merge coordination
 
 This branch changes `src/town.js` and adds only `src/architecture/` and `src/environment/` files. It does not modify `src/art.js`, the MVVM, interiors, rules, layout positions, or deployment. Integrate after reconciling any simultaneous town renderer changes. The contract `createTown(scene)` and its returned fields remain unchanged except for an additive `landscape` profiling object.
+
+## Approved prototype is the visual source of truth
+
+**The Storybook Swoop and Moonspire runtime builders now call `buildApprovedCottage()`
+from `src/architecture/approved-cottage.js`.** This is a direct adaptation of
+the approved **Fairy Cottage Workshop** Three.js example, not a new
+interpretation of the architectural brief.
+
+- `approvedSwoopHeight(x,z,width,rise,baseHeight)` retains the exact curved roof
+  profile: central rise, sweeping sides, curled eave and subtle longitudinal wave.
+- A roof-following extruded shell visually connects the structure to the roof.
+- Individual, multitone shingles follow the slope and use the roof's palette,
+  not the cream facade trim color.
+- The facade recreates the original rounded paned windows, arched door,
+  flowerboxes, decorative ivy, lanterns, foundation and crooked chimney.
+- Moonspire reuses the same swoop roof while adding the curled turret.
+- Property IDs, collision footprints, entrance positions and save formats
+  remain unchanged. Toadstool and Hobbit Hill use their own algorithms.
+
+Do not silently replace this source with another procedural interpretation.
+Any visual changes must be reviewed against the originally approved purple-roof
+cottage screenshot as well as screenshots from the actual game.

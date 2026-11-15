@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { designBuilding, seeded } from './design.js';
+import { buildApprovedCottage } from './approved-cottage.js';
 
 const materialCache=new Map();
 function mat(color,roughness=.87) {
@@ -99,53 +100,6 @@ function flowerBeds(parent,p,rng) {
     }
   }
 }
-function storybook(group,p,rng) {
-  const {w,d,wallHeight:h,roofCurvature:c,roofOverhang:o,palette:P}=p;
-  const front=d/2;
-  // The front and rear walls follow the exact swept roof underside, not a box.
-  const roofY=x=>h+.95+1.25*c*(1-Math.pow(Math.abs(x)/(w/2+o),1.7));
-  const wallProfile=x=>roofY(x)-.1;
-  // Four continuous wall faces, with front/rear gables reaching the roof skin.
-  for(const x of [-w/2,w/2])surface(group,12,8,(u,v)=>{
-    const z=(u-.5)*d;
-    return [x,v*wallProfile(x),z];
-  },P.wall);
-  for(const z of [-d/2,d/2])surface(group,28,10,(u,v)=>{
-    const x=(u-.5)*w;
-    return [x,wallProfile(x)*v,z];
-  },P.wall);
-  for(const x of [-w/2,w/2])cube(group,.22,h,d,P.timber,x,h/2,0);
-  for(let i=0;i<5;i++){
-    const x=-w/2+i*w/4;
-    for(const z of [-front,front])tube(group,[[x,0,z+.025],[x,h*.45,z+.025],[x,wallProfile(x)-.05,z+.025]],.075,P.timber,8);
-  }
-  // Roof is a continuous swept mesh; the eaves curl down and then up.
-  const half=w/2+o;
-  const roof=(x,z)=>{
-    const q=Math.abs(x)/half;
-    return h+.95+1.25*c*(1-Math.pow(q,1.7))-.28*Math.pow(q,8)+
-      .17*Math.sin(Math.PI*z/d)*Math.pow(q,5);
-  };
-  surface(group,32,16,(u,v)=>{
-    const x=(u-.5)*2*half,z=(v-.5)*(d+o*2);
-    return [x,roof(x,z),z];
-  },P.roof);
-  // Shingles are batched into one instanced mesh per cottage.
-  const shingles=[];
-  for(let j=0;j<11;j++)for(let i=0;i<20;i++){
-    const x=(-.5+(i+.5+(j%2)*.5)/20)*2*half;
-    const z=-d/2-o+(j+.5)*(d+o*2)/11;
-    if(Math.abs(x)>half-.08)continue;
-    shingles.push({x,z,y:roof(x,z)+.055,tilt:(roof(x+.05,z)-roof(x-.05,z))/.1,scale:.8+rng()*.28});
-  }
-  instanced(group,new THREE.BoxGeometry(.37,.075,.5),P.trim,shingles,(dummy,s)=>{
-    dummy.position.set(s.x,s.y,s.z);dummy.rotation.z=Math.atan(s.tilt);dummy.scale.set(s.scale,1,s.scale);
-  });
-  window(group,-w*.3,1.55,front+.07,.85,P);
-  window(group,w*.3,1.55,front+.07,.85,P);
-  door(group,front,h,P);
-  chimney(group,-w*.31,-d*.19,roof(-w*.31,-d*.19)+.52,P);
-}
 function toadstool(group,p,rng) {
   const {w,d,wallHeight:h,palette:P}=p;
   const radius=Math.min(w,d)*.45;
@@ -190,37 +144,6 @@ function toadstool(group,p,rng) {
   window(group,-radius*.51,1.5,face*.85,.62,P);
   window(group,radius*.51,1.5,face*.85,.62,P);
   door(group,face,h,P);
-}
-function moonspire(group,p,rng) {
-  // Main house is fully integrated swoop architecture, with a tower grafted
-  // into its side wall and roof volume, not floating as a detached primitive.
-  storybook(group,p,rng);
-  const {w,d,wallHeight:h,palette:P}=p;
-  const tx=-w*.32,tz=-d*.2,r=Math.min(w,d)*.19;
-  const towerHeight=h+3.25;
-  surface(group,18,12,(u,v)=>{
-    const a=u*Math.PI*2,rr=r*(1-.19*v)+.035*Math.sin(a*3+v*3);
-    return [tx+Math.cos(a)*rr,towerHeight*v,tz+Math.sin(a)*rr];
-  },P.wall);
-  for(let k=0;k<4;k++){
-    const a=k*Math.PI/2;
-    tube(group,[[tx+Math.cos(a)*r,0,tz+Math.sin(a)*r],
-      [tx+Math.cos(a)*(r*.9),h,tz+Math.sin(a)*(r*.9)],
-      [tx+Math.cos(a)*(r*.78),towerHeight,tz+Math.sin(a)*(r*.78)]],.065,P.timber,12);
-  }
-  surface(group,24,12,(u,v)=>{
-    const a=u*Math.PI*2,radius=(1-v)*r*1.55;
-    return [tx+Math.cos(a)*radius+.27*v*v,
-      towerHeight+.16+v*2.25+.12*Math.sin(a*3)*Math.sin(v*Math.PI),
-      tz+Math.sin(a)*radius];
-  },P.roof);
-  for(let i=0;i<3;i++){
-    const a=(i+.25)*Math.PI*2/3;
-    const x=tx+Math.sin(a)*r*.87,z=tz+Math.cos(a)*r*.87;
-    const glass=ball(group,.24,0x9fd0d1,x,towerHeight*.73,z,.65,1.6,.3);
-    glass.rotation.y=a;
-  }
-  ball(group,.22,0xe4c887,tx+.27,towerHeight+2.45,tz);
 }
 function hobbit(group,p,rng) {
   const {w,d,palette:P}=p,front=d/2;
@@ -284,9 +207,11 @@ export function createFairyBuilding(definition,config={}) {
   root.userData={buildingId:p.id,family:p.family,entrance:[...p.entrance],
     collisionFootprint:{x:p.x,z:p.z,w:p.w,d:p.d}};
   const body=new THREE.Group();root.add(body);
-  if(p.family==='storybook')storybook(body,p,rng);
+  // Storybook and Moonspire use the actual approved in-chat demo meshes.
+  // Do not substitute the older approximation found in this file.
+  if(p.family==='storybook')buildApprovedCottage(body,p,rng);
   if(p.family==='toadstool')toadstool(body,p,rng);
-  if(p.family==='moonspire')moonspire(body,p,rng);
+  if(p.family==='moonspire')buildApprovedCottage(body,p,rng,{moonspire:true});
   if(p.family==='hobbit')hobbit(body,p,rng);
   if(p.garden)flowerBeds(body,p,rng);
   return root;
