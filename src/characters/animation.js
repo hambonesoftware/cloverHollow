@@ -13,7 +13,8 @@ export function animationState(){
  */
 export function updateCharacterAnimation(group,dt,{
   velocity={x:0,z:0},heading=null,lookAt=null,talking=false,
-  sitting=false,carrying=false,expression='neutral',runThreshold=2.5
+  sitting=false,carrying=false,expression='neutral',runThreshold=2.5,
+  pose='idle'
 }={}){
   const rig=group.userData.rig;
   if(!rig)return null;
@@ -28,6 +29,9 @@ export function updateCharacterAnimation(group,dt,{
   s.carry=approach(s.carry,carrying?1:0,7,delta);
   s.sit=approach(s.sit,sitting?1:0,7,delta);
   s.expression=expression;
+  s.pose=pose;
+  const working=['sorting-mail','baking','hammering','gardening','sweeping','reading','serving','restocking','performing-music','applauding','greeting','talking','delivering-parcels','browsing'].includes(pose);
+  const actionPulse=Math.sin(s.elapsed*(pose==='hammering'?9:pose==='sweeping'?5:3.5));
   const desired=heading??(speed>.08?Math.atan2(velocity.x,velocity.z):group.rotation.y);
   if(!s.initialized){s.heading=group.rotation.y;s.initialized=true;}
   const turn=shortestAngle(s.heading,desired);
@@ -44,6 +48,11 @@ export function updateCharacterAnimation(group,dt,{
     rig.legs[i].rotation.z=sign*s.sit*.15;
     rig.arms[i].rotation.x=-step*sign*.48*weight+s.carry*(-.78)+s.talk*Math.sin(s.elapsed*9+i*2)*.24;
     rig.arms[i].rotation.z=sign*(.25+s.carry*.18);
+    if(working&&!weight){
+      if(['sorting-mail','baking','reading','serving','restocking','delivering-parcels'].includes(pose))rig.arms[i].rotation.x=-.75+actionPulse*.15;
+      else if(['hammering','sweeping','gardening','performing-music'].includes(pose))rig.arms[i].rotation.x=-.6+actionPulse*(i===1?.55:.25);
+      else if(['applauding','greeting','talking'].includes(pose))rig.arms[i].rotation.x=-.35+actionPulse*.32;
+    }
   }
   const look=lookAt&&Number.isFinite(lookAt.x)&&Number.isFinite(lookAt.z)
     ?clamp(shortestAngle(s.heading,Math.atan2(lookAt.x-group.position.x,lookAt.z-group.position.z)),-.55,.55):0;
@@ -79,4 +88,9 @@ export function setCharacterPose(group,pose){
   if(!group.userData.rig)return false;
   group.userData.pose={...group.userData.pose,...pose};
   return true;
+}
+
+/** Bridge from Activity Director actor metadata to the existing procedural rig. */
+export function applyActorVisualState(group,actor,dt){
+  return updateCharacterAnimation(group,dt,{velocity:actor.velocity||{x:0,z:0},heading:actor.heading,lookAt:actor.lookTarget,pose:actor.pose||'idle',talking:actor.pose==='talking',sitting:actor.pose==='sitting',carrying:!!actor.heldProp});
 }
