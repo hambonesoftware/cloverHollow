@@ -321,6 +321,7 @@ if (new URLSearchParams(location.search).has('integration-test')) {
       sites:town.districtSites.map(site=>({id:site.id,entrance:[...site.entrance],district:site.district}))
     }),
     festivalGame: () => activeFestivalGame,
+    festivalPrompt: () => activeFestivalGame&&activeFestivalGame.status==='active'?activityPrompt(activeFestivalGame):null,
     camera: () => cameraRig.state,
     playerPosition: () => ({ ...playerPosition }),
     rotateCamera: (dx,dy) => cameraRig.orbit(dx,dy),
