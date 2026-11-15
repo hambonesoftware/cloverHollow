@@ -18,6 +18,8 @@ const catalog={
   cafe:[['shop.cafe','Order tea and treats']],
   tailor:[['shop.tailor','Browse outfits']],
   bookshop:[['shop.bookshop','Browse books and stationery']],
+  clinic:[['clinic.visit','Ask about the village clinic']],
+  records:[['records.browse','Explore village records']],
   market:[['shop.market','Browse weekend stalls']]
 };
 export function serviceActions(kind){return (catalog[kind]||[]).map(([action,label])=>({action,label}));}
