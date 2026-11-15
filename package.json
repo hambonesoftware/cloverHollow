@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/*.test.js",
-    "serve": "npx http-server . -p 8900 -c-1"
+    "test": "node --test test/*.test.js src/viewmodels/*.test.js src/persistence/*.test.js src/interiors/*.test.js src/simulation/*.test.js",
+    "serve": "npx http-server . -p 8900 -c-1",
+    "test:browser": "node test/browser-smoke.mjs"
   }
 }
