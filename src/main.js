@@ -140,6 +140,15 @@ let placementsKey = '';
 let lastDeed = undefined;
 let ui;
 
+function positionHomeCamera() {
+  // Portrait iPhones have a narrow horizontal FOV; back the room camera away
+  // so the entire nine-unit miniature remains visible without a pinch gesture.
+  const aspect=window.innerWidth / Math.max(1,window.innerHeight);
+  const scale=aspect < .68 ? 1.85 : aspect < 1.08 ? 1.33 : 1;
+  camera.position.set(10.8*scale,10.5*scale,12.9*scale);
+  camera.lookAt(0,1.2,0);
+}
+
 function updateScene(state) {
   currentState = state;
   if (state.deed !== lastDeed) {
@@ -156,8 +165,7 @@ function updateScene(state) {
   dollhouse.setVisible?.(state.scene === 'home');
   if (state.scene === 'home') {
     indoorPlayer.position.set(0,0,2.1);
-    camera.position.set(10.8,10.5,12.9);
-    camera.lookAt(0,1.2,0);
+    positionHomeCamera();
     if (ui && state.story.homeVisits > 0 && !state.story.housewarming) ui.showHousewarming();
   } else {
     playerPosition = { ...state.town };
@@ -306,6 +314,7 @@ function resize() {
   camera.aspect=w/Math.max(1,h);
   camera.fov = w < 650 && h > w ? 49 : 42;
   camera.updateProjectionMatrix();
+  if (currentScene === 'home') positionHomeCamera();
 }
 window.addEventListener('resize',resize);
 resize();
