@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import {createStorybookLighting} from './rendering/storybook-lighting.js';
+import {createStorybookAtmosphere} from './atmosphere/storybook-atmosphere.js';
 import { LOTS } from './rules.js';
 import { box, sphere, cylinder, flat, sign, makePerson, animatePerson, tree, flower, gardenBench, lampPost } from './art.js';
 import { createFairyBuilding } from './architecture/generator.js';
@@ -34,14 +36,7 @@ const asPoint=([x,z])=>({x,z});
 export function createTown(scene){
   scene.background=new THREE.Color(0xc9e3ea);
   scene.fog=new THREE.Fog(0xc9e3ea,105,240);
-  const skyDay=new THREE.Color(0xc9e3ea),skyDusk=new THREE.Color(0xaec3d2);
-  const ambient=new THREE.HemisphereLight(0xfff3e2,0x88a98e,2.05);
-  scene.add(ambient);
-  const sun=new THREE.DirectionalLight(0xffedce,2.35);
-  sun.position.set(-35,64,35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
-  Object.assign(sun.shadow.camera,{left:-100,right:100,top:100,bottom:-160,near:1,far:150});
-  sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.normalBias=.035;scene.add(sun);
+  const storybookLighting=createStorybookLighting(scene,{quality:'medium'});
 
   const collision=createOutdoorCollision();
   const {walkable,obstacles}=collision;
@@ -239,7 +234,8 @@ export function createTown(scene){
 
   const player=makePerson('kid',{shirt:0x7aaf96,hair:0x634f4e,trousers:0x6a91a4});
   scene.add(player);
-  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16});
+  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:downtownDistrict.activityAnchors??[]});
+  const atmosphere=createStorybookAtmosphere(scene,{quality:'medium',walkable,locations:routePoints});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
@@ -300,18 +296,15 @@ export function createTown(scene){
     }
     downtownDistrict.update(dt,daySeconds);
     entertainmentDistrict.update(dt,daySeconds);
-    const fraction=((daySeconds%DAY_LENGTH)+DAY_LENGTH)%DAY_LENGTH/DAY_LENGTH;
-    const bright=Math.max(.28,Math.min(1,Math.sin(Math.PI*(fraction*.9+.07))*1.2));
-    ambient.intensity=1.1+bright*.95;sun.intensity=.65+bright*1.75;
-    scene.background.copy(skyDusk).lerp(skyDay,bright);
-    scene.fog.color.copy(scene.background);
+    const sky=storybookLighting.update(daySeconds);
+    atmosphere.update(dt,sky.night);
   }
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
     cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
-    districtActions,
+    districtActions,storybookLighting,atmosphere,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation};
 }
