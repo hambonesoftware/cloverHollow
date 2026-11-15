@@ -27,6 +27,8 @@ export function createActivityDirector(graph,actors){
    if(!actors.some(actor=>isRoute(findPedestrianRoute(graph,[actor.x,actor.z],[a.x,a.z]))))continue;
    valid.push({...a});
   }
+  // A new district registration must not leave stale station assignments.
+  for(const actor of actors){actor.stationId=null;actor.station=null;}
   stations=valid;occupied=new Map();return valid.length;
  }
  function release(actor){if(actor.stationId){occupied.get(actor.stationId)?.delete(actor.id);actor.stationId=null;}}
