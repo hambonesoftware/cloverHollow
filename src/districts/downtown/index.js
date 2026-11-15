@@ -115,5 +115,5 @@ export function createDowntownDistrict(scene,{sites=[],seed=1,quality='medium'}=
  }
  let disposed=false;
  return {root,interactables,update(dt,daySeconds){if(disposed)return;for(const item of animated)item.root.userData.daySeconds=daySeconds;},
-  dispose(){if(disposed)return;disposed=true;scene.remove(root);root.traverse(o=>{if(o.geometry&&!o.geometry.userData?.shared)o.geometry.dispose?.();});root.clear();}};
+  dispose(){if(disposed)return;disposed=true;scene.remove(root);root.clear(); // Geometry and materials may be shared by the approved generator caches.}};
 }
