@@ -182,8 +182,13 @@ export function createPlacementController({
     const position = ray && dollhouse.floorPosition(ray);
     // A tap on existing furniture selects it. A drag moves it.
     if (gesture.picked && !gesture.moved) {
-      selectedId = replacingId;
-      notify();
+      const chosen = replacingId;
+      candidate = null;
+      replacingId = null;
+      selectedId = chosen;
+      valid = false;
+      dollhouse.clearPreview();
+      say('Furniture selected. Drag it to move, or choose Move or Put away.');
       return;
     }
     if (position && candidate) reposition(position);
