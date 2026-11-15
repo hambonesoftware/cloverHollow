@@ -39,6 +39,7 @@ export function createTown(scene){
   const collision=createOutdoorCollision();
   const {walkable,obstacles}=collision;
   const pedestrianGraph=createPedestrianGraph(PATH_SEGMENTS,walkable);
+  const routePoints=[...pedestrianGraph.nodes.values()];
   const findRoute=(a,b)=>findPedestrianRoute(pedestrianGraph,a,b);
   scene.add(flat(190,175,color.grass,0,-.09,2));
 
@@ -177,7 +178,7 @@ export function createTown(scene){
     if(Math.abs(x)<21&&z> -25&&z<23)continue;
     if(Math.abs(x+61)<20&&z>31&&z<60)continue; // intentional orchard clearing
     if(!walkable(x,z))continue;
-    if([...pedestrianGraph.nodes.values()].some(p=>Math.hypot(x-p.x,z-p.z)<3.8))continue;
+    if(routePoints.some(p=>Math.hypot(x-p.x,z-p.z)<3.8))continue;
     if(obstacles.some(b=>Math.abs(x-b.x)<b.w/2+4.4&&Math.abs(z-b.z)<b.d/2+4.4))continue;
     foliage.push({x,z,s:.7+rnd(i+7)*.65,t:i%3});
   }
@@ -205,7 +206,7 @@ export function createTown(scene){
   for(let i=0;i<175;i++){
     const x=-76+rnd(i*31+9)*149,z=-60+rnd(i*29+14)*132;
     if(!walkable(x,z))continue;
-    if([...pedestrianGraph.nodes.values()].some(p=>Math.hypot(x-p.x,z-p.z)<2.5))continue;
+    if(routePoints.some(p=>Math.hypot(x-p.x,z-p.z)<2.5))continue;
     if(obstacles.some(b=>Math.abs(x-b.x)<b.w/2+1.5&&Math.abs(z-b.z)<b.d/2+1.5))continue;
     scene.add(flower(x,z,[0xf0a8bd,0xf2d180,0xdfd7ef][i%3]));
   }
