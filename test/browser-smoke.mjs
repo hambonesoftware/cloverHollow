@@ -147,6 +147,24 @@ try {
   await page.locator('#modal-host [data-action="dismiss"]').click();
   await page.screenshot({path:resolve(root,'test-results/lantern-quarter-desktop.png')}).catch(()=>{});
 
+  // Public festival and garden are genuine walk-through destinations. They
+  // must remain interactable without adding solid building collisions.
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(31,-96)),true);
+  await page.waitForTimeout(250);
+  await page.screenshot({path:resolve(root,'test-results/festival-green-desktop.png')}).catch(()=>{});
+  await page.locator('#toolbar [data-action="interact"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Lantern Festival Green/);
+  await page.locator('#modal-host [data-action="district-item:0"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Moonring Toss/);
+  await page.locator('#modal-host [data-action="activity-cancel"]').click();
+
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(20,-131)),true);
+  await page.locator('#toolbar [data-action="interact"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Starlight Gardens/);
+  await page.locator('#modal-host [data-action="district-item:0"]').click();
+  assert.match(await page.locator('#modal-host').innerText(),/Fireflies drift/);
+  await page.locator('#modal-host [data-action="dismiss"]').click();
+
   await page.reload({waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>Boolean(window.__cloverTest));
   assert.equal(await page.evaluate(()=>
