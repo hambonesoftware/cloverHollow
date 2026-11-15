@@ -207,7 +207,11 @@ function interact() {
       distances.push({ distance:distance+.25, kind:'actor', entry:actor });
   }
   distances.sort((a,b)=>a.distance-b.distance);
-  const closest=distances[0];
+  // Standing on a doorstep should activate that destination, even when an
+  // NPC happens to walk past the door at the same moment. Away from doors,
+  // the nearest neighbor remains the primary interaction target.
+  const doorstep=distances.find(item=>item.kind==='place'&&item.distance<1.9);
+  const closest=doorstep??distances[0];
   if (!closest) {ui.toast('Walk a little closer to a neighbor or doorway.');return;}
   const target=closest.entry;
   if (closest.kind === 'actor') {
