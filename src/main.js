@@ -63,12 +63,10 @@ function createFallbackDollhouse(scene) {
   }
   const items = new Map();
   let ghost = null;
-  const raycaster = new THREE.Raycaster();
   const floorPlane = new THREE.Plane(new THREE.Vector3(0,1,0),0);
-  function floorPosition(pointer, viewCamera) {
-    raycaster.setFromCamera(pointer, viewCamera);
+  function floorPosition(activeRaycaster) {
     const hit = new THREE.Vector3();
-    return raycaster.ray.intersectPlane(floorPlane,hit) ? { x:hit.x, z:hit.z } : null;
+    return activeRaycaster.ray.intersectPlane(floorPlane,hit) ? { x:hit.x, z:hit.z } : null;
   }
   function sync(placements) {
     const current = new Set((placements ?? []).map(p=>p.id));
@@ -90,7 +88,15 @@ function createFallbackDollhouse(scene) {
     }
   }
   function clearPreview() {
-    if (ghost) {group.remove(ghost);ghost=null;}
+    if (!ghost) return;
+    group.remove(ghost);
+    ghost.traverse(object => {
+      if (!object.isMesh) return;
+      object.geometry?.dispose();
+      if (Array.isArray(object.material)) object.material.forEach(m => m.dispose());
+      else object.material?.dispose();
+    });
+    ghost=null;
   }
   function preview(candidate) {
     clearPreview();
@@ -108,9 +114,8 @@ function createFallbackDollhouse(scene) {
     });
     group.add(ghost);
   }
-  function pickFurniture(pointer, viewCamera) {
-    raycaster.setFromCamera(pointer,viewCamera);
-    const hits=raycaster.intersectObjects([...items.values()],true);
+  function pickFurniture(activeRaycaster) {
+    const hits=activeRaycaster.intersectObjects([...items.values()],true);
     return hits[0]?.object.userData.furnitureId ?? null;
   }
   return { setVisible(visible){group.visible=visible;}, sync, preview, clearPreview, pickFurniture, floorPosition };
@@ -234,36 +239,38 @@ function canvasPoint(event) {
     -(event.clientY-bounds.top)/bounds.height*2+1);
 }
 function floorFromPointer(pointer) {
-  try {
-    const result=dollhouse.floorPosition?.(pointer,camera);
-    if (result && Number.isFinite(result.x) && Number.isFinite(result.z)) return result;
-  } catch (error) { console.warn('Dollhouse floorPosition adapter', error); }
-  // A world-space y=0 plane is the fallback for unsupported pick signatures.
   const ray=new THREE.Raycaster();
   ray.setFromCamera(pointer,camera);
+  try {
+    const result=dollhouse.floorPosition?.(ray);
+    if (result && Number.isFinite(result.x) && Number.isFinite(result.z)) return result;
+  } catch (error) { console.warn('Dollhouse floorPosition adapter', error); }
+  // World-space y=0 intersects the fallback room if the adapter is unavailable.
   const intersection=new THREE.Vector3();
   return ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),intersection)
     ? {x:intersection.x,z:intersection.z} : null;
 }
 function syncPreview(candidate) {
-  if (candidate) dollhouse.preview?.(candidate);
+  if (candidate) dollhouse.preview?.(candidate, candidate.valid);
   else dollhouse.clearPreview?.();
 }
 canvas.addEventListener('pointermove', event => {
   if (currentState.scene !== 'home' || !ui.isDecorating || ui.blocksMovement) return;
   const point=floorFromPointer(canvasPoint(event));
-  if (point) syncPreview(decorating.preview(point.x,point.z));
+  if (point) decorating.preview(point.x,point.z);
 });
 canvas.addEventListener('pointerdown', event => {
   if (currentState.scene !== 'home' || ui.blocksMovement) return;
   const point=canvasPoint(event);
   if (ui.isDecorating) {
     const floor=floorFromPointer(point);
-    if (floor) syncPreview(decorating.preview(floor.x,floor.z));
+    if (floor) decorating.preview(floor.x,floor.z);
     return;
   }
   let picked;
-  try { picked=dollhouse.pickFurniture?.(point,camera); }
+  const ray=new THREE.Raycaster();
+  ray.setFromCamera(point,camera);
+  try { picked=dollhouse.pickFurniture?.(ray); }
   catch (error) { console.warn('Dollhouse pickFurniture adapter',error); }
   const id=typeof picked==='string' ? picked :
     (picked?.id ?? picked?.userData?.furnitureId ?? null);
