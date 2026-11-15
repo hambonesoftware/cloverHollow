@@ -37,6 +37,18 @@ export const DISTRICT_SITES=Object.freeze([
   site('lantern-cafe','entertainment',21,-118,12,10,'Moonmilk Cafe','cafe'),
   site('lantern-music','entertainment',40,-118,12,10,'Cricket Music Hall','music')
 ]);
+/**
+ * Public entertainment lawns are interactive scenery, not buildings.
+ * They must NOT be appended to BUILDINGS: doing so would turn the central
+ * festival promenade into a collision obstacle and break NPC navigation.
+ * The festival stage sits to one side of the pedestrian through-route.
+ */
+export const SCENIC_ENTERTAINMENT_SITES=Object.freeze([
+  site('festival-green','entertainment',31,-102,14,9,
+    'Lantern Festival Green','festival'),
+  site('starlight-gardens','entertainment',20,-136,11,7,
+    'Starlight Gardens','garden')
+]);
 export const DISTRICT_LANDMARKS=Object.freeze([
   Object.freeze({id:'civic-garden',district:'downtown',x:-32,z:-62,kind:'garden'}),
   Object.freeze({id:'merchant-arcade',district:'downtown',x:-32,z:-87,kind:'promenade'}),
