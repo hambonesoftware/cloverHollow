@@ -65,6 +65,13 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Exercise the real Three.js experience
         run: node test/browser-smoke.mjs
+      - name: Upload desktop and iPhone review screenshots
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-hollow-desktop-and-mobile
+          path: test-results/
+          if-no-files-found: ignore
       - name: Upload failure screenshot
         if: failure()
         uses: actions/upload-artifact@v4
