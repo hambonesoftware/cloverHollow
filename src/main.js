@@ -324,6 +324,8 @@ if (new URLSearchParams(location.search).has('integration-test')) {
     previewAt: (x, z) => decorating.preview(x, z),
     currentScene: () => currentScene,
     actorCount: () => town.actors.length,
+    worldVisuals: () => town.visualDiagnostics(),
+    npcState: id => town.getNpcState(id),
     districts: () => ({
       downtown:town.districts.downtown.interactables.length,
       entertainment:town.districts.entertainment.interactables.length,
