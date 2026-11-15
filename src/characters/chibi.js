@@ -71,10 +71,10 @@ export function createChibi(kind='kid',colors={},options={}){
   }
   if(kind==='bunny'){
     for(const side of [-1,1]){
-      const ear=new THREE.Group();ear.position.set(side*.24,.45,-.03);
+      const ear=new THREE.Group();ear.position.set(side*.24,.32,-.03);
       ear.rotation.z=side*.15;
-      shape(ear,.15,.47,skin,0,.39,0,quality);
-      const pink=ell(.115,0xeaaab4,0,.4,.11,.8,2.6,.4,quality);ear.add(pink);
+      shape(ear,.115,.2,skin,0,.18,0,quality);
+      const pink=ell(.085,0xeaaab4,0,.19,.11,.8,1.65,.4,quality);ear.add(pink);
       head.add(ear);ears.push(ear);
     }
   }
