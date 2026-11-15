@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { createTown } from './town.js';
-import { makePerson, animatePerson, furniture as buildFurniture } from './art.js';
+import { makePerson, animatePerson, updateCharacterAnimation, furniture as buildFurniture } from './art.js';
+import { createMovementController } from './input/movement.js';
+import { createCameraRig } from './camera/camera-rig.js';
 import { LOTS, ROOM } from './rules.js';
 import { GameViewModel } from './viewmodels/game-view-model.js';
 import { DecoratingViewModel } from './viewmodels/decorating-view-model.js';
@@ -23,6 +25,9 @@ const decorating = new DecoratingViewModel(game);
 const outside = new THREE.Scene();
 const inside = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, 1, .08, 250);
+const cameraRig = createCameraRig(camera);
+const townMovement = createMovementController({walkSpeed:6.2,runSpeed:8.3});
+const homeMovement = createMovementController({walkSpeed:3.3,runSpeed:4.6});
 const town = createTown(outside);
 const indoorPlayer = makePerson('kid', { shirt: 0x7aaf96, hair: 0x634f4e, trousers: 0x6a91a4 });
 indoorPlayer.position.set(0, 0, 2.1);
@@ -142,12 +147,9 @@ let lastDeed = undefined;
 let ui;
 
 function positionHomeCamera() {
-  // Portrait iPhones have a narrow horizontal FOV; back the room camera away
-  // so the entire nine-unit miniature remains visible without a pinch gesture.
-  const aspect=window.innerWidth / Math.max(1,window.innerHeight);
-  const scale=aspect < .68 ? 1.85 : aspect < 1.08 ? 1.33 : 1;
-  camera.position.set(10.8*scale,10.5*scale,12.9*scale);
-  camera.lookAt(0,1.2,0);
+  // Preserve the open-front two-wall viewing quadrant while allowing user zoom.
+  cameraRig.setMode('home',{snap:true});
+  cameraRig.update(1/60,{x:0,z:0});
 }
 
 function updateScene(state) {
@@ -166,13 +168,15 @@ function updateScene(state) {
   dollhouse.setVisible?.(state.scene === 'home');
   if (state.scene === 'home') {
     indoorPlayer.position.set(0,0,2.1);
+    homeMovement.reset();
     positionHomeCamera();
     if (ui && state.story.homeVisits > 0 && !state.story.housewarming) ui.showHousewarming();
   } else {
     playerPosition = { ...state.town };
     town.player.position.set(playerPosition.x,0,playerPosition.z);
-    camera.position.set(playerPosition.x+18,19,playerPosition.z+24);
-    camera.lookAt(playerPosition.x,1.2,playerPosition.z);
+    townMovement.reset();
+    cameraRig.setMode('town',{snap:true});
+    cameraRig.update(1/60,playerPosition,{walkable:town.walkable});
   }
 }
 
@@ -259,6 +263,10 @@ if (new URLSearchParams(location.search).has('integration-test')) {
     previewAt: (x, z) => decorating.preview(x, z),
     currentScene: () => currentScene,
     actorCount: () => town.actors.length,
+    camera: () => cameraRig.state,
+    playerPosition: () => ({ ...playerPosition }),
+    rotateCamera: (dx,dy) => cameraRig.orbit(dx,dy),
+    zoomCamera: factor => cameraRig.zoom(factor),
     roomFurnitureCount: () => dollhouse.root
       ?.getObjectByName('Furniture • synchronized placements')?.children.length ?? 0,
     testFloorHit() {
@@ -291,32 +299,70 @@ function syncPreview(candidate) {
   if (candidate) dollhouse.preview?.(candidate, candidate.valid);
   else dollhouse.clearPreview?.();
 }
-canvas.addEventListener('pointermove', event => {
-  if (currentState.scene !== 'home' || !ui.isDecorating || ui.blocksMovement) return;
-  const point=floorFromPointer(canvasPoint(event));
-  if (point) decorating.preview(point.x,point.z);
-});
+// Orbit gestures are scoped to the scene canvas and never steal furniture placement
+// taps or UI interactions. A quick tap selects furniture; a drag rotates the view.
+const cameraPointers = new Map();
+let pinchDistance = null;
 canvas.addEventListener('pointerdown', event => {
-  if (currentState.scene !== 'home' || ui.blocksMovement) return;
-  const point=canvasPoint(event);
-  if (ui.isDecorating) {
-    const floor=floorFromPointer(point);
-    if (floor) decorating.preview(floor.x,floor.z);
+  if (ui.blocksMovement || ui.isDecorating) {
+    if (currentState.scene === 'home' && ui.isDecorating && !ui.blocksMovement) {
+      const floor=floorFromPointer(canvasPoint(event));
+      if(floor)decorating.preview(floor.x,floor.z);
+    }
     return;
   }
-  let picked;
+  cameraPointers.set(event.pointerId,{
+    x:event.clientX,y:event.clientY,
+    startX:event.clientX,startY:event.clientY,moved:false
+  });
+  try {canvas.setPointerCapture(event.pointerId);}catch {}
+});
+canvas.addEventListener('pointermove', event => {
+  if (currentState.scene === 'home' && ui.isDecorating && !ui.blocksMovement) {
+    const position=floorFromPointer(canvasPoint(event));
+    if(position)decorating.preview(position.x,position.z);
+    return;
+  }
+  const p=cameraPointers.get(event.pointerId);
+  if(!p)return;
+  const deltaX=event.clientX-p.x,deltaY=event.clientY-p.y;
+  p.x=event.clientX;p.y=event.clientY;
+  if(Math.hypot(p.x-p.startX,p.y-p.startY)>6)p.moved=true;
+  if(cameraPointers.size===2) {
+    const points=[...cameraPointers.values()];
+    const distance=Math.hypot(points[0].x-points[1].x,points[0].y-points[1].y);
+    if(pinchDistance!==null&&distance>10)cameraRig.zoom(pinchDistance/distance);
+    pinchDistance=distance;
+  }else if(p.moved) {
+    cameraRig.orbit(deltaX,deltaY);
+  }
+});
+canvas.addEventListener('wheel',event=>{
+  if(ui.blocksMovement||ui.isDecorating)return;
+  event.preventDefault();
+  cameraRig.zoom(Math.exp(event.deltaY*.001));
+},{passive:false});
+function releaseCameraPointer(event) {
+  const p=cameraPointers.get(event.pointerId);
+  if(!p)return;
+  const tap=!p.moved&&cameraPointers.size===1;
+  cameraPointers.delete(event.pointerId);
+  if(cameraPointers.size<2)pinchDistance=null;
+  if(event.type!=='pointerup'||!tap||ui.blocksMovement||ui.isDecorating||currentState.scene!=='home')return;
   const ray=new THREE.Raycaster();
-  ray.setFromCamera(point,camera);
-  try { picked=dollhouse.pickFurniture?.(ray); }
-  catch (error) { console.warn('Dollhouse pickFurniture adapter',error); }
-  const id=typeof picked==='string' ? picked :
-    (picked?.id ?? picked?.userData?.furnitureId ?? null);
-  if (id && decorating.selectPlaced(id)) {
+  ray.setFromCamera(canvasPoint(event),camera);
+  let picked=null;
+  try {picked=dollhouse.pickFurniture?.(ray);} catch(error){console.warn('Dollhouse picking',error);}
+  const id=typeof picked==='string'?picked:(picked?.id??picked?.userData?.furnitureId??null);
+  if(id&&decorating.selectPlaced(id)) {
     ui.panel='decorate';
     ui.toast('Tap an open spot to rearrange your furniture.');
     ui.render();
   }
-});
+}
+canvas.addEventListener('pointerup',releaseCameraPointer);
+canvas.addEventListener('pointercancel',releaseCameraPointer);
+canvas.addEventListener('lostpointercapture',releaseCameraPointer);
 decorating.subscribe(value => {
   if (!value.mode) dollhouse.clearPreview?.();
   else if (value.candidate) syncPreview(value.candidate);
@@ -343,7 +389,7 @@ function resize() {
   camera.aspect=w/Math.max(1,h);
   camera.fov = w < 650 && h > w ? 49 : 42;
   camera.updateProjectionMatrix();
-  if (currentScene === 'home') positionHomeCamera();
+  // Camera rig recalculates aspect-fit smoothly on the next frame.
 }
 window.addEventListener('resize',resize);
 resize();
@@ -356,53 +402,44 @@ function animate() {
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(), .05);
   walkAnimation+=dt;
-  let dx=0,dz=0;
-  if (held.has('KeyA') || held.has('ArrowLeft')) dx--;
-  if (held.has('KeyD') || held.has('ArrowRight')) dx++;
-  if (held.has('KeyW') || held.has('ArrowUp')) dz--;
-  if (held.has('KeyS') || held.has('ArrowDown')) dz++;
-  dx+=ui.axes.x; dz+=ui.axes.y;
-  const length=Math.hypot(dx,dz);
-  const walking=length>.13 && !ui.blocksMovement && !ui.isDecorating;
-  if (walking) { dx/=length;dz/=length; }
-  if (currentState.scene === 'town') {
-    if (walking) {
-      const speed=6.5;
-      const nx=playerPosition.x+dx*speed*dt;
-      const nz=playerPosition.z+dz*speed*dt;
-      if (!town.walkable || town.walkable(nx,nz)) {
-        playerPosition.x=nx;playerPosition.z=nz;
-      } else if (town.walkable(nx,playerPosition.z)) playerPosition.x=nx;
-      else if (town.walkable(playerPosition.x,nz)) playerPosition.z=nz;
-      town.player.rotation.y=Math.atan2(dx,dz);
-    }
+  let x=0,y=0;
+  if(held.has('KeyA')||held.has('ArrowLeft'))x--;
+  if(held.has('KeyD')||held.has('ArrowRight'))x++;
+  if(held.has('KeyW')||held.has('ArrowUp'))y--;
+  if(held.has('KeyS')||held.has('ArrowDown'))y++;
+  if(!ui.blocksMovement&&!ui.isDecorating){
+    x+=ui.axes.x;
+    y+=ui.axes.y;
+  }else{
+    x=0;y=0;
+  }
+  const input={x,y,cameraYaw:cameraRig.yaw};
+  if(currentState.scene==='town'){
+    const motion=townMovement.step(input,dt,playerPosition,town.walkable);
+    playerPosition=motion.position;
     town.player.position.set(playerPosition.x,0,playerPosition.z);
-    animatePerson(town.player,walkAnimation,walking);
+    updateCharacterAnimation(town.player,dt,{
+      velocity:motion.velocity,heading:motion.heading
+    });
     town.update?.(dt,walkAnimation,currentState.daySeconds);
-    const target=new THREE.Vector3(playerPosition.x+17,18,playerPosition.z+23);
-    camera.position.lerp(target,Math.min(1,dt*4));
-    camera.lookAt(playerPosition.x,1.1,playerPosition.z);
+    cameraRig.update(dt,playerPosition,{walkable:town.walkable});
     saveClock+=dt;
-    if (saveClock>=.75) { saveClock=0;game.setTownPosition(playerPosition.x,playerPosition.z); }
-  } else {
-    if (walking) {
-      const nx = indoorPlayer.position.x + dx * 3.8 * dt;
-      const nz = indoorPlayer.position.z + dz * 3.8 * dt;
-      // Share the interior branch's collision rules: furniture is solid to walkers.
-      if (isWalkable(nx, nz, currentState.placements)) {
-        indoorPlayer.position.x = nx;
-        indoorPlayer.position.z = nz;
-      } else if (isWalkable(nx, indoorPlayer.position.z, currentState.placements)) {
-        indoorPlayer.position.x = nx;
-      } else if (isWalkable(indoorPlayer.position.x, nz, currentState.placements)) {
-        indoorPlayer.position.z = nz;
-      }
-      indoorPlayer.rotation.y = Math.atan2(dx, dz);
+    if(saveClock>=.75){
+      saveClock=0;
+      game.setTownPosition(playerPosition.x,playerPosition.z);
     }
-    animatePerson(indoorPlayer,walkAnimation,walking);
+  }else{
+    const motion=homeMovement.step(input,dt,{
+      x:indoorPlayer.position.x,z:indoorPlayer.position.z
+    },(px,pz)=>isWalkable(px,pz,currentState.placements));
+    indoorPlayer.position.set(motion.position.x,0,motion.position.z);
+    updateCharacterAnimation(indoorPlayer,dt,{
+      velocity:motion.velocity,heading:motion.heading
+    });
+    cameraRig.update(dt,{x:0,z:0});
   }
   dayClock+=dt;
-  if (dayClock>=2) {game.advanceDay(dayClock);dayClock=0;}
+  if(dayClock>=2){game.advanceDay(dayClock);dayClock=0;}
   renderer.render(currentScene==='home'?inside:outside,camera);
 }
 animate();

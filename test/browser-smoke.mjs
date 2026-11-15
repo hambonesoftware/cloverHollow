@@ -93,8 +93,57 @@ try {
   assert.equal(await page.evaluate(() => window.__cloverTest.roomFurnitureCount()), 5);
   await page.locator('#toolbar [data-action="leave"]').click();
   assert.equal(await page.evaluate(() => window.__cloverTest.state().scene), 'town');
+
+  // Real pointer gestures must move the camera, not accidentally open dialogue.
+  const cameraBefore=await page.evaluate(()=>window.__cloverTest.camera());
+  await page.mouse.move(520,470);
+  await page.mouse.down();
+  await page.mouse.move(650,490,{steps:8});
+  await page.mouse.up();
+  const cameraDragged=await page.evaluate(()=>window.__cloverTest.camera());
+  assert.ok(Math.abs(cameraDragged.yaw-cameraBefore.yaw)>.20,'mouse camera orbit should move freely outdoors');
+  await page.mouse.wheel(0,-250);
+  const cameraZoomed=await page.evaluate(()=>window.__cloverTest.camera());
+  assert.ok(cameraZoomed.zoom<cameraDragged.zoom,'wheel should zoom into the town');
+
+  // Exercise the actual touch events on a portrait-sized screen.
+  const mobileContext=await browser.newContext({
+    viewport:{width:390,height:844},
+    deviceScaleFactor:2,isMobile:true,hasTouch:true
+  });
+  const mobile=await mobileContext.newPage();
+  mobile.on('pageerror',error=>errors.push('mobile: '+error.message));
+  await mobile.goto(url,{waitUntil:'domcontentloaded'});
+  await mobile.waitForFunction(()=>Boolean(window.__cloverTest),{timeout:60000});
+  await mobile.locator('[data-action="welcome"]').click();
+  await mobile.locator('[data-action="lot:0"]').click();
+  await mobile.locator('#modal-host [data-action="dismiss"]').click();
+  const zone=mobile.locator('#move-zone');
+  assert.equal(await zone.isVisible(),true,'portrait touch movement zone must be visible');
+  const rect=await zone.boundingBox();
+  assert.ok(rect&&rect.width>=120&&rect.height>=100,'floating joystick must fit a thumb');
+  const beforeTouch=await mobile.evaluate(()=>window.__cloverTest.playerPosition());
+  const origin={x:rect.x+rect.width*.42,y:rect.y+rect.height*.5};
+  const cdp=await mobileContext.newCDPSession(mobile);
+  await cdp.send('Input.dispatchTouchEvent',{
+    type:'touchStart',
+    touchPoints:[{x:origin.x,y:origin.y,id:7}]
+  });
+  await cdp.send('Input.dispatchTouchEvent',{
+    type:'touchMove',
+    touchPoints:[{x:origin.x+36,y:origin.y,id:7}]
+  });
+  await mobile.waitForTimeout(650);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  const afterTouch=await mobile.evaluate(()=>window.__cloverTest.playerPosition());
+  assert.ok(Math.hypot(afterTouch.x-beforeTouch.x,afterTouch.z-beforeTouch.z)>.25,
+    'touch joystick should move the player in the actual Three.js town');
+  await mkdir(resolve(root,'test-results'),{recursive:true});
+  await page.screenshot({path:resolve(root,'test-results/town-desktop.png')});
+  await mobile.screenshot({path:resolve(root,'test-results/town-phone-portrait.png')});
+  await mobileContext.close();
   assert.deepEqual(errors, [], 'No uncaught errors while playing');
-  console.log('PASS: town rendering, deed, home entry, furniture placement/movement/rotation, housewarming, persisted reload, and exit.');
+  console.log('PASS: town, deed, furniture, reload, camera orbit/zoom, mobile joystick, and exit.');
 } catch (error) {
   await mkdir(resolve(root, 'test-results'), { recursive: true });
   if (page) await page.screenshot({ path: resolve(root,'test-results/browser-failure.png'), fullPage: true }).catch(() => {});

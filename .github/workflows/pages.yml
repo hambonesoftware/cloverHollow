@@ -18,9 +18,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install Three.js for source-based character tests
+        run: npm install --no-audit --no-fund
       - name: Check module syntax
         run: |
           node --check src/main.js
+          node --check src/input/movement.js
+          node --check src/input/movement.test.js
+          node --check src/camera/camera-math.js
+          node --check src/camera/camera-rig.js
+          node --check src/characters/chibi.js
+          node --check src/characters/animation.js
+          node --check src/visual/gfx.js
+          node --check src/architecture/design.js
+          node --check src/architecture/generator.js
+          node --check src/environment/landscape.js
+          node --check src/interiors/fairy-details.js
           node --check src/ui/app-ui.js
           node --check src/viewmodels/game-view-model.js
           node --check src/viewmodels/decorating-view-model.js
@@ -35,7 +48,7 @@ jobs:
           node --check src/interiors/placement-controller.js
           node --check src/interiors/room-walker.js
       - name: Run unit tests
-        run: node --test test/*.test.js src/viewmodels/*.test.js src/persistence/*.test.js src/interiors/*.test.js src/simulation/*.test.js
+        run: npm test
 
   browser:
     name: Three.js playable town and cottage
@@ -52,6 +65,13 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Exercise the real Three.js experience
         run: node test/browser-smoke.mjs
+      - name: Upload desktop and iPhone review screenshots
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-hollow-desktop-and-mobile
+          path: test-results/
+          if-no-files-found: ignore
       - name: Upload failure screenshot
         if: failure()
         uses: actions/upload-artifact@v4
