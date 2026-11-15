@@ -25,6 +25,7 @@ export const CIVIC_INTERACTIONS=Object.freeze({
   'shop.tailor':{speaker:'Town Tailor',line:'The tailor has laid out moss-green scarves and tiny jackets with brass buttons.'},
   'shop.bookshop':{speaker:'Bookshop',line:'Every shelf seems to hide a different miniature adventure.'},
   'shop.market':{speaker:'Market Stalls',line:'The stalls are full of flowers, trinkets, pastries, and cheerful conversation.'},
+  'visit-cafe':{speaker:'Moonmilk Cafe',line:'The moonberry cream is fresh, and a little terrace table is waiting under the lanterns.'},
   'visit-garden':{speaker:'Starlight Gardens',line:'The lanterns glow softly above the flowers. Fireflies drift between the benches.'},
   'visit-promenade':{speaker:'Lantern Promenade',line:'Paper lanterns sway over the cobblestones. The theater and music hall are only a little walk away.'}
 });
