@@ -34,6 +34,7 @@ export function createTown(scene){
   const sun=new THREE.DirectionalLight(0xffedce,2.35);
   sun.position.set(-35,64,35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
   Object.assign(sun.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:1,far:150});
+  sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.normalBias=.035;scene.add(sun);
 
   const collision=createOutdoorCollision();
