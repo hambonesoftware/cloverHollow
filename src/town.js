@@ -100,8 +100,8 @@ export function createTown(scene,{quality='medium'}={}){
   ];
   const entertainmentSites=[...DISTRICT_SITES.filter(site=>site.district==='entertainment'),
     ...SCENIC_ENTERTAINMENT_SITES];
-  const downtownDistrict=createDowntownDistrict(scene,{sites:downtownSites,seed:'clover-downtown',quality}});
-  const entertainmentDistrict=createEntertainmentDistrict(scene,{sites:entertainmentSites,seed:'lantern-quarter',quality}});
+  const downtownDistrict=createDowntownDistrict(scene,{sites:downtownSites,seed:'clover-downtown',quality});
+  const entertainmentDistrict=createEntertainmentDistrict(scene,{sites:entertainmentSites,seed:'lantern-quarter',quality});
   const districtActions=new Map();
   for(const entry of [...downtownDistrict.interactables,...entertainmentDistrict.interactables]){
     if(!districtActions.has(entry.siteId))districtActions.set(entry.siteId,[]);
