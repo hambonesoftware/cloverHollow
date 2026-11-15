@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {describeDistrictAction,MINI_GAMES} from './district-interactions.js';
-import {DISTRICT_SITES} from '../world/district-plan.js';
+import {DISTRICT_SITES,SCENIC_ENTERTAINMENT_SITES} from '../world/district-plan.js';
+import * as THREE from 'three';
+import {createEntertainmentDistrict} from '../districts/entertainment/index.js';
 import {serviceActions} from '../services/downtown/index.js';
 import {startActivity,advanceActivity,activityPrompt} from '../activities/entertainment/index.js';
 
@@ -31,4 +33,21 @@ test('all three mini-games launch and can earn keepsakes',()=>{
     assert.equal(state.status,'complete');
     assert.ok(state.reward);
   }
+});
+
+test('every reserved Lantern Quarter venue including cafe and public gardens is rendered and interactive',()=>{
+  const sites=[...DISTRICT_SITES.filter(s=>s.district==='entertainment'),...SCENIC_ENTERTAINMENT_SITES];
+  const scene=new THREE.Scene();
+  const district=createEntertainmentDistrict(scene,{sites,quality:'low'});
+  assert.equal(district.root.children.length,sites.length,'no invisible collidable venues');
+  for(const site of sites){
+    assert.ok(district.root.children.some(group=>group.name===site.name),site.id+' has no model');
+    assert.ok(district.interactables.some(action=>action.siteId===site.id),site.id+' has no action');
+  }
+  assert.ok(district.interactables.some(action=>action.action==='visit-cafe'));
+  assert.ok(district.interactables.some(action=>action.action==='visit-garden'));
+  assert.ok(district.interactables.some(action=>action.siteId==='festival-green'&&action.action==='ring-toss'));
+  district.update(.016,1060);
+  district.dispose();
+  assert.ok(!scene.children.includes(district.root));
 });
