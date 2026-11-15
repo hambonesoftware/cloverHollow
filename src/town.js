@@ -6,7 +6,7 @@ import { createFairyLandscape } from './environment/landscape.js';
 import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from './world/layout.js';
 import { createPedestrianGraph, findPedestrianRoute } from './world/navigation.js';
 import { createNpcSimulation, DAY_LENGTH } from './simulation/town-life.js';
-import { DISTRICT_SITES, WORLD_BOUNDS } from './world/district-plan.js';
+import { DISTRICT_SITES, DISTRICT_PATHS, WORLD_BOUNDS } from './world/district-plan.js';
 import { createCityInfrastructure } from './city/infrastructure.js';
 import { createDowntownDistrict } from './districts/downtown/index.js';
 import { createEntertainmentDistrict } from './districts/entertainment/index.js';
@@ -53,8 +53,10 @@ export function createTown(scene){
     (WORLD_BOUNDS.minZ+WORLD_BOUNDS.maxZ)/2));
   const cityInfrastructure=createCityInfrastructure(scene,{quality:'mobile'});
 
-  // A gentle, readable network of village streets, local lanes and short paths.
-  for(let i=0;i<PATH_SEGMENTS.length;i++){
+  // Original village roads live here; district streets are rendered once by
+  // createCityInfrastructure, avoiding duplicate paving and extra draw calls.
+  // All paths still remain in PATH_SEGMENTS for the shared pedestrian graph.
+  for(let i=0;i<PATH_SEGMENTS.length-DISTRICT_PATHS.length;i++){
     const [x0,z0,x1,z1]=PATH_SEGMENTS[i],wide=i<13;
     const w=(wide?5.5:1.8)+(x0===x1?0:Math.abs(x1-x0));
     const d=(wide?5.5:1.8)+(z0===z1?0:Math.abs(z1-z0));
