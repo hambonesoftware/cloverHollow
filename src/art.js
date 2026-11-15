@@ -1,24 +1,35 @@
 import * as THREE from 'three';
 
-// Original procedural art, tuned to the proportions of Willowbend's chibi characters.
-export function material(color, options={}) { return new THREE.MeshToonMaterial({ color, ...options }); }
+// Shared procedural resources: many buildings and villagers, few GPU uploads.
+// Never mutate a material returned from this cache on an individual mesh.
+const materialCache=new Map();
+const geometryCache=new Map();
+function geometry(key,create){
+  if(!geometryCache.has(key))geometryCache.set(key,create());
+  return geometryCache.get(key);
+}
+export function material(color, options={}) {
+  if(Object.keys(options).length)return new THREE.MeshToonMaterial({color,...options});
+  if(!materialCache.has(color))materialCache.set(color,new THREE.MeshToonMaterial({color}));
+  return materialCache.get(color);
+}
 export function box(w,h,d,color,x=0,y=0,z=0) {
-  const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),typeof color==='number'?material(color):color);
+  const o=new THREE.Mesh(geometry(`box:${w}:${h}:${d}`,()=>new THREE.BoxGeometry(w,h,d)),typeof color==='number'?material(color):color);
   o.position.set(x,y,z); o.castShadow=h>.35; o.receiveShadow=true; return o;
 }
 export function sphere(r,color,x=0,y=0,z=0) {
-  const o=new THREE.Mesh(new THREE.SphereGeometry(r,16,12),material(color));
+  const o=new THREE.Mesh(geometry(`sphere:${r}`,()=>new THREE.SphereGeometry(r,12,9)),material(color));
   o.position.set(x,y,z);o.castShadow=true;return o;
 }
 export function cylinder(rt,rb,h,color,x=0,y=0,z=0,sides=10) {
-  const o=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,sides),material(color));
+  const o=new THREE.Mesh(geometry(`cylinder:${rt}:${rb}:${h}:${sides}`,()=>new THREE.CylinderGeometry(rt,rb,h,sides)),material(color));
   o.position.set(x,y,z);o.castShadow=true;return o;
 }
 export function cone(r,h,color,x=0,y=0,z=0,sides=10) {
   return cylinder(0,r,h,color,x,y,z,sides);
 }
 export function flat(w,d,color,x=0,y=0,z=0) {
-  const o=new THREE.Mesh(new THREE.PlaneGeometry(w,d),material(color,{side:THREE.DoubleSide}));
+  const o=new THREE.Mesh(geometry(`plane:${w}:${d}`,()=>new THREE.PlaneGeometry(w,d)),material(color,{side:THREE.DoubleSide}));
   o.rotation.x=-Math.PI/2;o.position.set(x,y,z);o.receiveShadow=true;return o;
 }
 export function sign(text,width=5) {
@@ -90,10 +101,23 @@ export function animatePerson(g,time,moving=false,phase=0){
   g.rotation.z=Math.sin(time*1.6+phase)*(moving?.02:.008);
 }
 export function tree(x,z,scale=1,color=0x85b680) {
+  // Rounded layered tree crowns with branch structure; a hero specimen
+  // for the orchard and plaza, distinct from the instanced background trees.
   const g=new THREE.Group();g.position.set(x,0,z);g.scale.setScalar(scale);
-  g.add(cylinder(.28,.35,2.3,0x987455,0,1.15,0));
-  for(const [dx,dy,dz,r] of [[0,3.2,0,1.38],[-.9,2.85,.1,1.05],[.85,2.95,0,1.1],[.12,3.83,-.4,.94]])
-    g.add(sphere(r,color,dx,dy,dz));
+  g.add(cylinder(.22,.39,2.4,0x927353,0,1.2,0,9));
+  for(const [dx,dy,dz,angle] of [[-.42,2.4,0,-.38],[.42,2.5,.08,.35]]){
+    const branch=cylinder(.11,.15,1.3,0x9b7a58,dx,dy,dz,6);
+    branch.rotation.z=angle;g.add(branch);
+  }
+  const palette=[color,new THREE.Color(color).lerp(new THREE.Color(0xcce1a6),.13),
+    new THREE.Color(color).lerp(new THREE.Color(0x638c7b),.11)];
+  for(const [dx,dy,dz,r,c] of [
+    [0,3.3,0,1.24,0],[-.94,2.97,.08,.91,1],[.89,3,.04,.97,2],
+    [.06,3.87,-.3,.94,1],[-.24,3.16,.7,.6,0],[.5,3.44,.61,.57,2]
+  ]){
+    const crown=sphere(r,palette[c],dx,dy,dz);
+    crown.scale.set(1.05,.9,1);g.add(crown);
+  }
   return g;
 }
 export function flower(x,z,color=0xe8a0ae){
@@ -110,16 +134,40 @@ export function gardenBench(x,z,r=0) {
 }
 export function lampPost(x,z) {
   const g=new THREE.Group();g.position.set(x,0,z);
-  g.add(cylinder(.06,.09,3.1,0x6f665d,0,1.55,0,9));
-  g.add(sphere(.3,0xffe2a1,0,3.12,0));
-  g.add(cone(.42,.32,0x55847b,0,3.44,0,8));return g;
+  g.add(cylinder(.065,.12,3.2,0x6f665d,0,1.6,0,9));
+  g.add(cylinder(.35,.35,.1,0xb79d72,0,.1,0,10));
+  const lantern=new THREE.Mesh(
+    geometry('lantern-glass',()=>new THREE.SphereGeometry(.33,12,8)),
+    new THREE.MeshBasicMaterial({color:0xffdda1})
+  );
+  lantern.position.set(0,3.2,0);g.add(lantern);
+  g.add(cone(.44,.32,0x55847b,0,3.55,0,8));
+  g.add(cylinder(.1,.1,.16,0xb79d72,0,3.76,0,8));
+  return g;
 }
 export function building({x,z,w=8,d=7,wall=0xffe9cd,roof=0xc98572,name='',shop=false}) {
   const g=new THREE.Group();g.position.set(x,0,z);
   g.add(box(w+.35,.35,d+.35,0xc6b8a2,0,.18,0));
   g.add(box(w,3.75,d,wall,0,2.05,0));
-  const roofMesh=cone(Math.max(w,d)*.73,2.8,roof,0,5.13,0,4);
-  roofMesh.rotation.y=Math.PI/4;roofMesh.scale.z=d/w;g.add(roofMesh);
+  // A true cottage gable roof: the front door is visually readable from
+  // our high three-quarter camera, unlike a featureless pyramid roof.
+  const rise=1.7,run=w/2+.3,angle=Math.atan2(rise,run);
+  for(const side of [-1,1]){
+    const slope=box(Math.hypot(run,rise)+.18,.24,d+.85,roof,
+      side*run/2,4.04+rise/2,0);
+    slope.rotation.z=-side*angle;
+    g.add(slope);
+  }
+  const gable=new THREE.Shape();
+  gable.moveTo(-w/2,4.02);gable.lineTo(0,5.74);gable.lineTo(w/2,4.02);gable.closePath();
+  for(const face of [-1,1]){
+    const panel=new THREE.Mesh(
+      geometry(`gable:${w}`,()=>new THREE.ShapeGeometry(gable)),
+      material(wall,{side:THREE.DoubleSide})
+    );
+    panel.position.z=face*(d/2+.018);
+    panel.receiveShadow=true;g.add(panel);
+  }
   g.add(box(1.4,2.36,.12,0xffe9cb,0,1.3,d/2+.07));
   g.add(box(1.15,2.02,.14,shop?0xa5b4a4:0x8caea5,0,1.28,d/2+.17));
   g.add(sphere(.08,0xffd57f,.4,1.3,d/2+.28));

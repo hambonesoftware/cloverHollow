@@ -1,192 +1,285 @@
 import * as THREE from 'three';
 import { LOTS } from './rules.js';
 import { box, sphere, cylinder, flat, sign, building, makePerson, animatePerson, tree, flower, gardenBench, lampPost } from './art.js';
+import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from './world/layout.js';
+import { createPedestrianGraph, findPedestrianRoute } from './world/navigation.js';
+import { createNpcSimulation, DAY_LENGTH } from './simulation/town-life.js';
 
-const rnd=(n)=>{const s=Math.sin(n*127.1+31.7)*43758.5453;return s-Math.floor(s);};
-const LOCATIONS = Object.freeze({
-  square: [0,4], mayor: [0,-16], bakery: [-20,-10], furniture: [20,-10],
-  general: [37,-9], pond: [55,38], orchard: [-40,33], creek: [51,0],
-  south: [0,30], woods: [-42,-17], market: [-10,9]
-});
-export function createTown(scene) {
+const rnd=n=>{const s=Math.sin(n*127.1+31.7)*43758.5453;return s-Math.floor(s);};
+const color={grass:0xa8cda0,road:0xe9d6b4,roadEdge:0x91b29b,wood:0xb18c6c};
+const asPoint=([x,z])=>({x,z});
+
+/**
+ * Clover Hollow's outdoor Three.js view / world adapter.
+ * UI and persistence belong to other layers, never to this module.
+ * Existing interface: player, actors, focusables, buildings, walkable,
+ * update(dt, elapsedSeconds, daySeconds), useLot(index|null), locations.
+ *
+ * Additional API:
+ *   getNearestBuilding(x,z,radius=3.5) -> focusable or null
+ *   getNearestInteractable(x,z,radius=3.5) -> same
+ *   getPlayerLot(deed?) -> {id,index,entrance, ...} or null
+ *   getNpcState(id) -> current plain simulation snapshot or null
+ *   findRoute([x,z],[x,z]) -> navigation waypoints or null
+ *   updateNpcSimulation(dt,daySeconds) -> update the pure model ONLY.
+ *   pedestrianGraph -> reusable navigation graph (read-only by convention)
+ * The optional deed to getPlayerLot overrides the value passed to useLot.
+ */
+export function createTown(scene){
   scene.background=new THREE.Color(0xc9e3ea);
-  scene.fog=new THREE.Fog(0xc9e3ea,70,148);
-  scene.add(new THREE.HemisphereLight(0xfff2db,0x83a786,2.15));
-  const sun=new THREE.DirectionalLight(0xfff0ce,2.6);
-  sun.position.set(-35,64,35);sun.castShadow=true;
-  sun.shadow.mapSize.set(1024,1024);
-  sun.shadow.camera.left=-65;sun.shadow.camera.right=65;sun.shadow.camera.top=65;sun.shadow.camera.bottom=-65;
+  scene.fog=new THREE.Fog(0xc9e3ea,73,155);
+  const skyDay=new THREE.Color(0xc9e3ea),skyDusk=new THREE.Color(0xaec3d2);
+  const ambient=new THREE.HemisphereLight(0xfff3e2,0x88a98e,2.05);
+  scene.add(ambient);
+  const sun=new THREE.DirectionalLight(0xffedce,2.35);
+  sun.position.set(-35,64,35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
+  Object.assign(sun.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:1,far:150});
+  sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.normalBias=.035;scene.add(sun);
-  const ground=flat(182,182,0xa7c996,0,-.075,0);scene.add(ground);
-  // Busy village center and paths to every neighborhood. Walkways are legible from the camera.
-  const roads=[
-    [0,0,8.1,130],[-13,3,92,7],[-7,29,91,6.5],[22,-12,83,6.2],
-    [32,19,6,65],[-39,17,6,43],[-20,-23,6,26]
-  ];
-  for(const [x,z,w,d] of roads){
-    scene.add(flat(w+1,d+1,0x90ab92,x,-.035,z),flat(w,d,0xe7d1a9,x,-.026,z));
+
+  const collision=createOutdoorCollision();
+  const {walkable,obstacles}=collision;
+  const pedestrianGraph=createPedestrianGraph(PATH_SEGMENTS,walkable);
+  const routePoints=[...pedestrianGraph.nodes.values()];
+  const findRoute=(a,b)=>findPedestrianRoute(pedestrianGraph,a,b);
+  scene.add(flat(190,175,color.grass,0,-.09,2));
+
+  // A gentle, readable network of village streets, local lanes and short paths.
+  for(let i=0;i<PATH_SEGMENTS.length;i++){
+    const [x0,z0,x1,z1]=PATH_SEGMENTS[i],wide=i<13;
+    const w=(wide?5.5:1.8)+(x0===x1?0:Math.abs(x1-x0));
+    const d=(wide?5.5:1.8)+(z0===z1?0:Math.abs(z1-z0));
+    const cx=(x0+x1)/2,cz=(z0+z1)/2;
+    scene.add(flat(w+.7,d+.7,color.roadEdge,cx,-.038,cz));
+    scene.add(flat(w,d,wide?color.road:0xe8dcc4,cx,-.03,cz));
   }
-  const square=flat(24,20,0xe5d3aa,0,-.009,4);scene.add(square);
-  scene.add(flat(21,17,0xeadab8,0,-.004,4));
-  const creek=flat(12,170,0x8ec6d3,53,-.04,0);scene.add(creek);
-  const stream=flat(8,170,0x70b0c5,53,-.03,0);scene.add(stream);
-  scene.add(flat(19,7,0xa98a70,52,-.004,-14));
-  for(let j=0;j<9;j++)scene.add(box(.12,.16,7.1,0xd3ae82,43+j*2,.05,-14));
-  const buildings=[],obstacles=[];
-  function addBuilding(id,x,z,w,d,label,roof,wall=0xffe7c7,kind='public'){
-    const o=building({x,z,w,d,wall,roof,name:label,shop:kind!=='home'});scene.add(o);
-    const entry={id,x,z: z+d/2+1.45,w,d,name:label};
-    buildings.push(entry);obstacles.push({x,z,w:w+.3,d:d+.3,id});
-    return o;
+  // Plaza stonework covers the roads but leaves the proper pedestrian loop.
+  scene.add(flat(23,20,0xd5ba96,0,-.023,4));
+  scene.add(flat(21.6,18.6,0xf0dec0,0,-.019,4));
+  for(let i=-4;i<=4;i++){
+    scene.add(box(.035,.012,18.3,0xe1caaa,i*2.25,-.009,4));
   }
-  addBuilding('mayor',0,-21,11,8,"MAYOR'S HALL",0x7caaa2,0xf6e8c8);
-  addBuilding('bakery',-21,-14,10,8,"PIP'S BAKERY",0xce8495,0xffe4ce);
-  addBuilding('furniture',21,-14,11,8,'LITTLE OAK',0xb78d6c,0xf5dfbe);
-  addBuilding('general',38,-13,9,8,'GENERAL GOODS',0x7ba7ae,0xe2eacb);
-  addBuilding('mabel',-33,-25,8,7,"MABEL'S",0xb97f93,0xffe0ce,'home');
-  addBuilding('bruno',-44,5,9,7,"BRUNO'S",0x9c9e73,0xe8debc,'home');
-  addBuilding('pip',-23,17,8,7,"PIP'S",0xbaa5d6,0xf6dfd6,'home');
-  addBuilding('dot',35,16,8,7,"DOT'S",0x7b9dbc,0xe5f1d9,'home');
-  addBuilding('fennel',-29,-43,8,7,"FENNEL'S",0x8cad7e,0xd9eccb,'home');
-  for(let i=0;i<LOTS.length;i++){
-    const l=LOTS[i];
-    addBuilding('lot-'+i,l.x,l.z,8,7,i===0?'SUNNY COTTAGE':i===1?'CREEK COTTAGE':'ORCHARD COTTAGE',l.roof,0xffeed3,'home');
-    // A front garden makes each property feel personal.
-    scene.add(box(9,.55,.19,0xc6a787,l.x,.3,l.z+5.9));
-    for(const dx of [-3.1,-2.2,2.25,3.1])
-      scene.add(flower(l.x+dx,l.z+5.3,dx<0?0xf0b3ad:0xffd27b));
-    const tag=sign('AVAILABLE HOME',4.15);tag.position.set(l.x,2.35,l.z+6.2);tag.userData.lotTag=i;scene.add(tag);
-    l.tag=tag;
+  for(let i=-3;i<=3;i++)scene.add(box(21.2,.012,.03,0xe1caaa,0,-.008,4+i*2.3));
+
+  // Stream, reed-fringed pond, footbridge and broad riverbank.
+  scene.add(flat(13,160,0x85ac9c,66,-.06,0));
+  scene.add(flat(10,160,0x80bfcc,66,-.044,0));
+  scene.add(flat(7.5,160,0x6fb2c8,66,-.039,0));
+  scene.add(box(22,.28,7.6,0x9a816d,65,.045,-9));
+  for(let j=0;j<12;j++)scene.add(box(.16,.09,7.35,0xc5a784,54+j*2,.25,-9));
+  for(const side of [-1,1]){
+    scene.add(box(21,.24,.15,0x8b735e,65,1.02,-9+side*3.7));
+    for(let j=0;j<6;j++)scene.add(box(.16,1.04,.16,0x8b735e,55+j*4,.53,-9+side*3.7));
   }
-  // The well and its active community gathering space.
+  scene.add(cylinder(4.15,4.3,.07,0x92b4a0,57,-.023,34,32));
+  scene.add(cylinder(3.85,3.9,.09,0x7aafbb,57,.018,34,32));
+  scene.add(cylinder(3.34,3.45,.055,0x6da7b7,57,.065,34,32));
+  for(let i=0;i<13;i++){
+    const a=i*Math.PI*2/13,r=5.4;
+    const x=57+Math.cos(a)*r,z=34+Math.sin(a)*r;
+    if(x<53.2)continue; // keep the pond-side walking lane wide
+    scene.add(cylinder(.045,.055,.85,0x729c72,x,.43,z,5));
+    scene.add(sphere(.12,0xc69e77,x,.95,z));
+  }
+
+  const buildingModels=new Map(),lotSigns=new Map();
+  const buildings=BUILDINGS.map(b=>({
+    id:b.id,x:b.x,z:b.entrance[1],centerZ:b.z,w:b.w,d:b.d,
+    name:b.name,kind:b.kind,entrance:[...b.entrance],lotIndex:b.lotIndex??null
+  }));
+  for(const b of BUILDINGS){
+    const model=building({
+      x:b.x,z:b.z,w:b.w,d:b.d,wall:b.wall,roof:b.roof,
+      name:b.name.toUpperCase(),shop:b.kind!=='home'&&b.kind!=='lot'
+    });
+    scene.add(model);buildingModels.set(b.id,model);
+    const front=b.z+b.d/2;
+    scene.add(flat(2.3,1.25,0xc8a986,b.x,-.012,front+.86));
+    for(const offset of [-b.w/2+.9,b.w/2-.9]){
+      scene.add(box(.95,.45,.8,0xad8766,b.x+offset,.26,front+.55));
+      for(let k=0;k<3;k++)scene.add(flower(b.x+offset+(k-1)*.27,front+.58,
+        [0xe9999c,0xecc77c,0xddd2ec][k]));
+    }
+    if(b.kind==='bakery'||b.kind==='furniture'||b.kind==='shop'){
+      const awning=box(5,.16,1.35,b.kind==='bakery'?0xcf8093:
+        b.kind==='furniture'?0x91a787:0x79a6a8,0,3.35,b.d/2+.75);
+      model.add(awning);
+      for(const dx of [-2.1,2.1])model.add(box(.08,.75,.08,0xffe7cc,dx,2.98,b.d/2+1.24));
+      if(b.kind==='bakery'){
+        for(let i=0;i<3;i++)model.add(sphere(.35,0xdca77b,-1+i,2.65,b.d/2+1.2));
+      }
+    }
+    if(b.kind==='civic'){
+      for(const dx of [-4,4]){
+        model.add(cylinder(.33,.33,4.5,0xf2e0bb,dx,2.3,b.d/2+.6,10));
+        model.add(box(.72,.25,.72,0xc4aa85,dx,4.55,b.d/2+.6));
+      }
+      model.add(box(11,.36,2,0x799b95,0,4.5,b.d/2+.5));
+    }
+    if(b.kind==='home'||b.kind==='lot'){
+      model.add(box(.57,1.45,.63,0xc99a7f,-b.w*.27,5.18,-b.d*.18));
+      model.add(box(.85,.23,.88,0xe6c6a5,-b.w*.27,5.93,-b.d*.18));
+      for(const dx of [-b.w/2-.4,b.w/2+.4])
+        scene.add(box(.16,.68,4.1,0xb49a7d,b.x+dx,.37,b.z+b.d/2+3.1));
+      if(b.kind==='lot'){
+        const available=sign('AVAILABLE HOME',4.2);
+        available.position.set(b.x,2.9,front+2.8);scene.add(available);
+        const owned=sign('YOUR HOME',3.8);
+        owned.position.set(b.x,2.9,front+2.8);owned.visible=false;scene.add(owned);
+        lotSigns.set(b.lotIndex,{available,owned});
+      }
+    }
+  }
+
+  // An active civic square: the well is a landmark, not a teleport target.
   const well=new THREE.Group();well.position.set(0,0,4);
-  well.add(cylinder(2.15,2.35,.85,0xbda995,0,.43,0,12));
-  well.add(cylinder(1.66,1.66,.13,0x77aabc,0,.89,0,18));
-  well.add(cylinder(.15,.15,2.9,0xa07a5c,-1.55,2.2,0),cylinder(.15,.15,2.9,0xa07a5c,1.55,2.2,0));
-  well.add(box(3.4,.22,.22,0xa07a5c,0,3.6,0));
-  const bell=sign('CLOVER HOLLOW',6);bell.position.y=4.25;well.add(bell);scene.add(well);
-  scene.add(gardenBench(-7,6,Math.PI/2),gardenBench(7,6,-Math.PI/2));
-  scene.add(gardenBench(-8,12,.2),gardenBench(9,12,-.3));
-  for(const [x,z] of [[-11,1],[11,1],[-12,17],[12,17],[-8,-8],[9,-8],[-20,28],[19,27],[32,25],[-35,24]])
+  well.add(cylinder(2.1,2.35,.83,0xb9a48e,0,.42,0,14));
+  well.add(cylinder(1.6,1.6,.12,0x73a9ba,0,.89,0,18));
+  well.add(cylinder(.13,.13,2.8,0x97765b,-1.5,2.17,0),
+           cylinder(.13,.13,2.8,0x97765b,1.5,2.17,0));
+  well.add(box(3.5,.22,.22,0xa17e60,0,3.59,0));
+  const placard=sign('CLOVER HOLLOW',5.4);placard.position.y=4.19;well.add(placard);scene.add(well);
+  for(const [x,z,r] of [[-11,7,Math.PI/2],[11,7,-Math.PI/2],
+    [-12,15,.25],[12,15,-.25],[-10,-5,2.5],[10,-5,-2.5],
+    [-46,48,.2],[22,27,0]])scene.add(gardenBench(x,z,r));
+  for(const [x,z] of [[-14,-8],[14,-8],[-14,19],[14,19],[-30,25],[28,25],
+    [-45,-9],[46,-9],[-40,45],[21,46],[-8,47],[39,46],[-10,61],[17,61]])
     scene.add(lampPost(x,z));
-  // Outdoor market stalls that feel occupied.
-  for(const [x,z,c] of [[-12,13,0xe49da3],[-12,20,0x8db7a7],[12,20,0xedd18b]]){
-    scene.add(box(4.4,.23,2.15,0xb98961,x,1.12,z));
-    for(const dx of [-1.85,1.85])scene.add(box(.14,2.2,.15,0xa47958,x+dx,1.23,z));
-    const canopy=box(4.8,.23,2.8,c,x,2.48,z);scene.add(canopy);
-    for(let k=-1;k<=1;k++)scene.add(sphere(.3,k===0?0xf5ce73:0x9dc18d,x+k*.9,1.47,z));
+
+  // Colorful working-market stalls; leave pedestrian paths open on all sides.
+  for(const [x,z,c] of [[-15,4,0xe7a1aa],[15,4,0xecc985],
+    [-15,13,0x8fb7a6],[15,13,0xafb0d4]]){
+    const stall=new THREE.Group();stall.position.set(x,0,z);
+    stall.add(box(4.05,.19,2.1,0xb98b65,0,1.12,0));
+    for(const dx of [-1.8,1.8])stall.add(box(.13,2.35,.14,0x947457,dx,1.32,0));
+    stall.add(box(4.55,.2,2.8,c,0,2.63,0));
+    for(let k=0;k<5;k++)stall.add(sphere(.25,k%2?0xe59b8d:0xdcc276,
+      (k-2)*.68,1.43,.12));
+    scene.add(stall);
   }
-  // Apple orchard, decorative flower patches, carefully distributed trees.
-  for(let i=0;i<20;i++){
-    const x=-62+(i%5)*7+2*rnd(i);
-    const z=22+Math.floor(i/5)*8+rnd(i+54);
-    scene.add(tree(x,z,.75+rnd(i+8)*.22,0x8eb67e));
-    for(let k=0;k<3;k++)scene.add(sphere(.2,0xdb8875,x+(rnd(i*7+k)-.5)*2,2.2+rnd(i*4+k),z+(rnd(i*9+k)-.5)*2));
+  // A small rustic garden near the orchard, adjacent to Clover's lane.
+  for(let row=0;row<3;row++){
+    scene.add(box(4.6,.16,1.12,0x94765b,-61,.05,53+row*2.1));
+    for(let k=-2;k<=2;k++)scene.add(sphere(.31,
+      row===0?0x82b77c:row===1?0xd99b83:0xc5b78b,
+      -61+k*.85,.42,53+row*2.1));
   }
-  for(let i=0;i<75;i++){
-    const a=i*2.399,r=35+Math.sqrt(i/75)*42;
-    const x=Math.cos(a)*r,z=Math.sin(a)*r;
-    if(Math.abs(x-53)<12||x<-29&&z>10&&z<55||Math.abs(x)<7||Math.abs(z-3)<8||Math.abs(z-29)<8)continue;
-    if(buildings.some(b=>Math.hypot(b.x-x,(b.z-b.d/2-1.45)-z)<11))continue;
-    scene.add(tree(x,z,.6+rnd(i+31)*.8,[0x7eaa77,0x96bb86,0x86b4a0][i%3]));
+  for(let i=0;i<11;i++){
+    const x=-74+i*2.6,z=40+(i%3)*2.2;
+    if(!walkable(x,z))continue;
+    scene.add(tree(x,z,.77+rnd(i)*.16,0x81b284));
+    for(let k=0;k<3;k++)scene.add(sphere(.17,0xce887c,
+      x+(rnd(i*5+k)-.5)*1.8,2.6+rnd(i*9+k),z+(rnd(i*7+k)-.5)*1.9));
   }
-  for(let i=0;i<145;i++){
-    const x=(rnd(i*8+9)-.5)*130,z=(rnd(i*3+17)-.5)*116;
-    if(Math.abs(x)<12&&Math.abs(z)<26||Math.abs(x-53)<9)continue;
-    if(buildings.some(b=>Math.abs(b.x-x)<b.w/2+2&&Math.abs((b.z-b.d/2-1.45)-z)<b.d/2+2))continue;
-    scene.add(flower(x,z,[0xf0abbd,0xf6d187,0xe8eff7][i%3]));
+
+  // Instanced silhouettes provide a fuller tree line for only a few draw calls.
+  const foliage=[];
+  for(let i=0;i<420&&foliage.length<122;i++){
+    const x=-78+rnd(i*17+3)*158,z=-63+rnd(i*13+21)*137;
+    if(Math.abs(x)<21&&z> -25&&z<23)continue;
+    if(Math.abs(x+61)<20&&z>31&&z<60)continue; // intentional orchard clearing
+    if(!walkable(x,z))continue;
+    if(routePoints.some(p=>Math.hypot(x-p.x,z-p.z)<3.8))continue;
+    if(obstacles.some(b=>Math.abs(x-b.x)<b.w/2+4.4&&Math.abs(z-b.z)<b.d/2+4.4))continue;
+    foliage.push({x,z,s:.7+rnd(i+7)*.65,t:i%3});
   }
-  // Reusable character appearance; resident personalities come from the original Willowbend.
+  const trunkGeo=new THREE.CylinderGeometry(.22,.32,2.25,7);
+  const crownGeo=new THREE.IcosahedronGeometry(1,1);
+  const leafColors=[0x82ab76,0x94ba84,0x84b0a3];
+  const trunkMat=new THREE.MeshToonMaterial({color:0x94745a});
+  const trunkMesh=new THREE.InstancedMesh(trunkGeo,trunkMat,foliage.length);
+  const leaves=leafColors.map(c=>new THREE.InstancedMesh(crownGeo,new THREE.MeshToonMaterial({color:c}),
+    foliage.filter(p=>leafColors[p.t]===c).length));
+  const dummy=new THREE.Object3D(),counts=[0,0,0];
+  foliage.forEach((p,i)=>{
+    dummy.position.set(p.x,1.12*p.s,p.z);dummy.rotation.set(0,rnd(i+4)*6,0);
+    dummy.scale.setScalar(p.s);dummy.updateMatrix();trunkMesh.setMatrixAt(i,dummy.matrix);
+    const k=p.t;
+    dummy.position.set(p.x,3.02*p.s,p.z);
+    dummy.rotation.set(0,rnd(i)*Math.PI*2,0);
+    dummy.scale.set(1.48*p.s,1.19*p.s,1.35*p.s);dummy.updateMatrix();
+    leaves[k].setMatrixAt(counts[k]++,dummy.matrix);
+  });
+  trunkMesh.instanceMatrix.needsUpdate=true;trunkMesh.castShadow=false;scene.add(trunkMesh);
+  leaves.forEach(l=>{l.instanceMatrix.needsUpdate=true;l.castShadow=false;scene.add(l);});
+
+  // Flower drifts in verges, with no obstruction of doors or route lines.
+  for(let i=0;i<175;i++){
+    const x=-76+rnd(i*31+9)*149,z=-60+rnd(i*29+14)*132;
+    if(!walkable(x,z))continue;
+    if(routePoints.some(p=>Math.hypot(x-p.x,z-p.z)<2.5))continue;
+    if(obstacles.some(b=>Math.abs(x-b.x)<b.w/2+1.5&&Math.abs(z-b.z)<b.d/2+1.5))continue;
+    scene.add(flower(x,z,[0xf0a8bd,0xf2d180,0xdfd7ef][i%3]));
+  }
+
   const player=makePerson('kid',{shirt:0x7aaf96,hair:0x634f4e,trousers:0x6a91a4});
   scene.add(player);
-  const cast=[
-    {name:'Mayor Thistle',kind:'hedgehog',shirt:0x6d9685,home:[0,-15],work:[-2,-12],visit:[-2,5],night:[0,-15],
-      lines:['Welcome to Clover Hollow. Every door has a story.','The village ledger is old, but there is always room for another name.','A good town is built one neighbor at a time.']},
-    {name:'Mabel',kind:'cat',shirt:0xc58d9f,home:[-33,-18],work:[-9,10],visit:[-3,7],night:[-33,-18],
-      lines:['I remember when the lanterns lit every lane.','Make yourself at home. I truly mean that.','Some mornings, the town smells like butter and rain.']},
-    {name:'Pip',kind:'bunny',shirt:0xe2aa83,home:[-23,21],work:[-18,-8],visit:[-6,8],night:[-23,21],
-      lines:['The cinnamon buns are almost ready!','I saved you the pastry with the extra icing.','Clover says my apple tart is dangerously good.']},
-    {name:'Bruno',kind:'bear',shirt:0x789d89,home:[-44,10],work:[-14,17],visit:[3,8],night:[-44,10],
-      lines:['I made that table myself. Want to see the grain?','Ask for help if the furniture is heavy.','There is nothing like a properly fitted door.']},
-    {name:'Dot',kind:'duck',shirt:0x96b4c9,home:[35,21],work:[34,13],visit:[8,9],night:[35,21],
-      lines:['The creek is full of little silver fish.','Something glimmered near the old tree last night.','Come by for tea when it rains.']},
-    {name:'Biscuit',kind:'dog',shirt:0xcf9e7b,home:[13,22],work:[10,8],visit:[-9,12],night:[13,22],
-      lines:['Race you to the fountain!','I found a shiny button, but it might be a pebble.','The square is best when everybody is here.']},
-    {name:'Fennel',kind:'frog',shirt:0xac98bc,home:[-29,-38],work:[-9,-12],visit:[3,12],night:[-29,-38],
-      lines:['Echo Cave remembers more than it tells.','I found a stone shaped exactly like a boot.','Do you think lanterns can have memories?']},
-    {name:'Hazel',kind:'cat',shirt:0xb7a077,home:[-39,28],work:[-11,14],visit:[-4,8],night:[-39,28],
-      lines:['Those bluebells would look lovely on your windowsill.','Every table needs flowers.','The market is liveliest on sunny mornings.']},
-    {name:'Clover',kind:'bunny',shirt:0x9bb37b,home:[-38,29],work:[-40,28],visit:[-11,18],night:[-38,29],
-      lines:['The orchard is finally in bloom.','Pip and I are having an apple-pie competition.','Bring a friend for cider.']},
-    {name:'Reed',kind:'frog',shirt:0x7caaa5,home:[39,27],work:[46,34],visit:[14,17],night:[39,27],
-      lines:['The pond is peaceful if you sit long enough.','I fixed the little footbridge this morning.','The reeds are where the frogs sing.']}
-  ];
-  const actors=cast.map((data,i)=>{
+  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:5});
+  const actorModels=new Map();
+  const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
-    const seed=(i*.73)+1;
-    model.position.set(data.home[0]+rnd(i)*3,0,data.home[1]+rnd(i+3)*3);
-    model.rotation.y=(i%5)*.8;
-    scene.add(model);
-    return {...data,model,x:model.position.x,z:model.position.z,target:[...data.work],phase:i*.7,seed,stopped:0};
+    model.position.set(data.x,0,data.z);model.visible=data.visible;
+    scene.add(model);actorModels.set(data.id,model);
+    return {...data,model};
   });
-  // Populate outdoor plaza with simple lightweight visitors, not full relationship trees.
-  const visitors=Array.from({length:7},(_,i)=>{
-    const model=makePerson(i%3===0?'cat':i%3===1?'bunny':'kid',{shirt:[0xc9a1b6,0xa9bf80,0x8caacc,0xd7ad7d][i%4]});
-    model.position.set((i%3-1)*7,0,9+Math.floor(i/3)*5);
-    scene.add(model);
-    return {model,x:model.position.x,z:model.position.z,target:[Math.sin(i*2)*10,7+Math.cos(i)*10],phase:i*1.6,seed:i+20,stopped:0,visitor:true};
-  });
-  actors.push(...visitors);
-  const focusables=[
-    {id:'mayor',x:0,z:-16,r:3,name:"Mayor's Hall"},
-    {id:'bakery',x:-21,z:-8.2,r:3.1,name:"Pip's Bakery"},
-    {id:'furniture',x:21,z:-8.2,r:3.1,name:'Little Oak Furnishings'},
-    {id:'general',x:38,z:-7.2,r:3.1,name:'General Goods'},
-    ...LOTS.map((l,i)=>({id:'lot-'+i,x:l.x,z:l.z+5.2,r:3.4,name:l.name}))
-  ];
-  function walkable(x,z){
-    if(Math.abs(x)>83||Math.abs(z)>79)return false;
-    if(x>48&&x<59&&Math.abs(z+14)>4.4)return false;
-    for(const o of obstacles){
-      if(Math.abs(x-o.x)<o.w/2+.52&&Math.abs(z-o.z)<o.d/2+.52)return false;
+
+  const focusables=BUILDINGS.map(b=>({
+    id:b.id,x:b.entrance[0],z:b.entrance[1],r:b.kind==='lot'?3.4:3.2,
+    name:b.name,kind:b.kind,lotIndex:b.lotIndex??null,
+    entrance:[...b.entrance]
+  }));
+  function getNearestBuilding(x,z,radius=3.5){
+    let closest=null,best=radius;
+    for(const point of focusables){
+      const d=Math.hypot(point.x-x,point.z-z);
+      if(d<best&&d<=point.r+.5){closest=point;best=d;}
     }
-    if(Math.hypot(x,z-4)<2.55)return false;
-    return true;
+    return closest;
   }
-  function update(dt,t,daySeconds){
-    const dayFraction=(daySeconds%1320)/1320;
-    const phase=dayFraction<.28?'morning':dayFraction<.54?'work':dayFraction<.79?'visit':'night';
-    for(let i=0;i<actors.length;i++){
-      const a=actors[i];
-      let goal;
-      if(a.visitor){
-        const k=Math.floor(daySeconds/20+a.seed)%7;
-        goal=[[8,10],[-8,15],[5,0],[-5,0],[11,17],[-12,8],[0,21]][k];
-      } else {
-        goal=phase==='morning'?a.home:phase==='work'?a.work:phase==='visit'?a.visit:a.night;
-      }
-      if(Math.hypot(a.x-goal[0],a.z-goal[1])<1){
-        a.stopped+=dt;
-        if(a.stopped>3+a.seed%4)a.target=[goal[0]+Math.sin(t*.2+a.seed)*1.15,goal[1]+Math.cos(t*.2+a.seed)*.9];
-      }else{a.target=goal;a.stopped=0;}
-      const dx=a.target[0]-a.x,dz=a.target[1]-a.z,d=Math.hypot(dx,dz);
-      const moving=d>.35;
-      if(moving){
-        const speed=a.visitor?1.0:1.3;
-        const xx=a.x+dx/d*Math.min(dt*speed,d),zz=a.z+dz/d*Math.min(dt*speed,d);
-        // Simple road-aware movement: prevent an NPC clipping through houses or the well.
-        if(walkable(xx,zz)){a.x=xx;a.z=zz;}
-        else if(walkable(xx,a.z)){a.x=xx;}
-        else if(walkable(a.x,zz)){a.z=zz;}
-        a.model.rotation.y=Math.atan2(dx,dz);
-      }
-      a.model.position.set(a.x,0,a.z);
-      animatePerson(a.model,t,moving,a.phase);
-    }
-  }
+  let selectedDeed=null;
   function useLot(deed){
-    for(let i=0;i<LOTS.length;i++)LOTS[i].tag.visible=deed===null||deed===i;
-    if(deed!==null){LOTS[deed].tag.material.map?.dispose?.();} // The selected house now belongs to the player.
+    const valid=Number.isInteger(deed)&&deed>=0&&deed<LOTS.length?deed:null;
+    selectedDeed=valid;
+    for(const [i,tags] of lotSigns){
+      tags.available.visible=valid===null;
+      tags.owned.visible=valid===i;
+    }
   }
-  return {scene,player,actors,focusables,buildings,walkable,update,useLot,locations:LOCATIONS};
+  function getPlayerLot(deed=selectedDeed){
+    if(!Number.isInteger(deed)||deed<0||deed>=LOTS.length)return null;
+    const b=BUILDINGS.find(item=>item.lotIndex===deed);
+    return {id:b.id,index:deed,x:b.x,z:b.z,entrance:[...b.entrance],
+      name:b.name,roof:b.roof};
+  }
+  const getNpcState=id=>{
+    const npc=simulation.actors.find(a=>a.id===id||a.name===id);
+    return npc?{id:npc.id,name:npc.name,x:npc.x,z:npc.z,activity:npc.activity,
+      intention:npc.intention,target:[...npc.target],visible:npc.visible,
+      moving:npc.moving,routeError:npc.routeError??null}:null;
+  };
+  const updateNpcSimulation=(dt,daySeconds)=>simulation.advance(dt,daySeconds);
+  function update(dt,t=0,daySeconds=0){
+    simulation.advance(dt,daySeconds);
+    for(let i=0;i<simulation.actors.length;i++){
+      const data=simulation.actors[i],view=actors[i],model=actorModels.get(data.id);
+      view.x=data.x;view.z=data.z;view.target=data.target;
+      view.activity=data.activity;view.intention=data.intention;
+      view.visible=data.visible;view.moving=data.moving;
+      model.visible=data.visible;
+      if(!data.visible)continue;
+      model.position.set(data.x,0,data.z);
+      if(Number.isFinite(data.heading))model.rotation.y=data.heading;
+      animatePerson(model,t,data.moving,data.phase);
+    }
+    const fraction=((daySeconds%DAY_LENGTH)+DAY_LENGTH)%DAY_LENGTH/DAY_LENGTH;
+    const bright=Math.max(.28,Math.min(1,Math.sin(Math.PI*(fraction*.9+.07))*1.2));
+    ambient.intensity=1.1+bright*.95;sun.intensity=.65+bright*1.75;
+    scene.background.copy(skyDusk).lerp(skyDay,bright);
+    scene.fog.color.copy(scene.background);
+  }
+  useLot(null);
+  return {scene,player,actors,focusables,buildings,walkable,update,useLot,
+    locations:PLACES,obstacles,pedestrianGraph,findRoute,
+    getNearestBuilding,getNearestInteractable:getNearestBuilding,
+    getPlayerLot,getNpcState,updateNpcSimulation};
 }
