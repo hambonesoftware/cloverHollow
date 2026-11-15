@@ -105,10 +105,11 @@ function storybook(group,p,rng) {
   // The front and rear walls follow the exact swept roof underside, not a box.
   const roofY=x=>h+.95+1.25*c*(1-Math.pow(Math.abs(x)/(w/2+o),1.7));
   const wallProfile=x=>roofY(x)-.1;
-  surface(group,24,10,(u,v)=>{
-    const x=(u-.5)*w,z=(v-.5)*d;
-    return [x,wallProfile(x)*.5,z];
-  },P.wall); // visible continuous timber core under both roof slopes
+  // Four continuous wall faces, with front/rear gables reaching the roof skin.
+  for(const x of [-w/2,w/2])surface(group,12,8,(u,v)=>{
+    const z=(u-.5)*d;
+    return [x,v*wallProfile(x),z];
+  },P.wall);
   for(const z of [-d/2,d/2])surface(group,28,10,(u,v)=>{
     const x=(u-.5)*w;
     return [x,wallProfile(x)*v,z];
