@@ -55,7 +55,9 @@ export class GameViewModel {
     if (!FURNITURE[type]) return failure('Unknown furniture.');
     if (unusedFurniture(this.model, type) <= 0) return failure('No unplaced furniture of this type.');
     if (!this.canPlaceFurniture(type, x, z, r)) return failure('That furniture will not fit there.');
-    const id = 'item-' + this.model.nextFurnitureId++;
+    let id;
+    do { id = 'item-' + this.model.nextFurnitureId++; }
+    while (this.model.placements.some(p => p.id === id));
     const placement = { id, type, x, z, r };
     this.model.placements.push(placement);
     this._commit();
