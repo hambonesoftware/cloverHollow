@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {applyGraphicsQuality,selectGraphicsQuality,createFrameProfiler} from './performance/graphics-quality.js';
 import { createTown } from './town.js';
 import { makePerson, animatePerson, updateCharacterAnimation, furniture as buildFurniture } from './art.js';
 import { createMovementController } from './input/movement.js';
@@ -21,6 +22,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.setClearColor(0xc8dfda);
+const graphicsMode=selectGraphicsQuality({memory:navigator.deviceMemory??4,coarse:matchMedia('(pointer:coarse)').matches});
 
 const game = new GameViewModel({ storage: browserStorage() });
 const decorating = new DecoratingViewModel(game);
@@ -28,6 +30,8 @@ const outside = new THREE.Scene();
 const inside = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(42, 1, .08, 250);
 const cameraRig = createCameraRig(camera);
+applyGraphicsQuality(renderer,camera,graphicsMode,window.devicePixelRatio||1);
+const graphicsProfiler=createFrameProfiler(renderer);
 const townMovement = createMovementController({walkSpeed:6.2,runSpeed:8.3});
 const homeMovement = createMovementController({walkSpeed:3.3,runSpeed:4.6});
 const town = createTown(outside);
@@ -327,6 +331,7 @@ if (new URLSearchParams(location.search).has('integration-test')) {
     festivalGame: () => activeFestivalGame,
     festivalPrompt: () => activeFestivalGame&&activeFestivalGame.status==='active'?activityPrompt(activeFestivalGame):null,
     camera: () => cameraRig.state,
+    graphics: () => graphicsProfiler.sample(1/60,currentScene==='home'?inside:outside,graphicsMode),
     playerPosition: () => ({ ...playerPosition }),
     rotateCamera: (dx,dy) => cameraRig.orbit(dx,dy),
     zoomCamera: factor => cameraRig.zoom(factor),
@@ -504,5 +509,6 @@ function animate() {
   dayClock+=dt;
   if(dayClock>=2){game.advanceDay(dayClock);dayClock=0;}
   renderer.render(currentScene==='home'?inside:outside,camera);
+  if(new URLSearchParams(location.search).has('integration-test')) graphicsProfiler.sample(dt,currentScene==='home'?inside:outside,graphicsMode);
 }
 animate();
