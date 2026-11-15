@@ -51,7 +51,10 @@ test('residents keep Willowbend identities and cover every daily activity',()=>{
   ]);
   const encountered=new Set();
   for(let t=0;t<DAY_LENGTH;t+=10)encountered.add(getScheduleActivity(t));
-  for(const activity of ACTIVITIES)assert.ok(encountered.has(activity),activity);
+  // 'waiting' is an ambient visitor behavior, not an assigned resident shift.
+  for(const activity of ACTIVITIES.filter(activity=>activity!=='waiting'))
+    assert.ok(encountered.has(activity),activity);
+  assert.ok(ACTIVITIES.includes('waiting'),'expanded visitors can pause at venues');
 });
 
 test('a simulated day follows clear routes without cutting through buildings',()=>{
@@ -73,7 +76,9 @@ test('a simulated day follows clear routes without cutting through buildings',()
 
 test('visitor budget is capped and does not persist state',()=>{
   const sim=createNpcSimulation(graph,{visitorCount:100});
-  assert.equal(sim.visitors.length,5);
+  // A higher explicit budget is allowed, while the default remains five.
+  assert.equal(sim.visitors.length,24);
+  assert.equal(createNpcSimulation(graph).visitors.length,5);
   sim.advance(.1,500);
   assert.ok(sim.visitors.some(v=>v.visible));
   sim.advance(.1,1220);

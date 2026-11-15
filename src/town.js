@@ -6,6 +6,8 @@ import { createFairyLandscape } from './environment/landscape.js';
 import { BUILDINGS, PATH_SEGMENTS, PLACES, createOutdoorCollision } from './world/layout.js';
 import { createPedestrianGraph, findPedestrianRoute } from './world/navigation.js';
 import { createNpcSimulation, DAY_LENGTH } from './simulation/town-life.js';
+import { DISTRICT_SITES, WORLD_BOUNDS } from './world/district-plan.js';
+import { createCityInfrastructure } from './city/infrastructure.js';
 
 const rnd=n=>{const s=Math.sin(n*127.1+31.7)*43758.5453;return s-Math.floor(s);};
 const color={grass:0xa8cda0,road:0xe9d6b4,roadEdge:0x91b29b,wood:0xb18c6c};
@@ -29,13 +31,13 @@ const asPoint=([x,z])=>({x,z});
  */
 export function createTown(scene){
   scene.background=new THREE.Color(0xc9e3ea);
-  scene.fog=new THREE.Fog(0xc9e3ea,73,155);
+  scene.fog=new THREE.Fog(0xc9e3ea,105,240);
   const skyDay=new THREE.Color(0xc9e3ea),skyDusk=new THREE.Color(0xaec3d2);
   const ambient=new THREE.HemisphereLight(0xfff3e2,0x88a98e,2.05);
   scene.add(ambient);
   const sun=new THREE.DirectionalLight(0xffedce,2.35);
   sun.position.set(-35,64,35);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);
-  Object.assign(sun.shadow.camera,{left:-75,right:75,top:75,bottom:-75,near:1,far:150});
+  Object.assign(sun.shadow.camera,{left:-100,right:100,top:100,bottom:-160,near:1,far:150});
   sun.shadow.camera.updateProjectionMatrix();
   sun.shadow.normalBias=.035;scene.add(sun);
 
@@ -44,7 +46,10 @@ export function createTown(scene){
   const pedestrianGraph=createPedestrianGraph(PATH_SEGMENTS,walkable);
   const routePoints=[...pedestrianGraph.nodes.values()];
   const findRoute=(a,b)=>findPedestrianRoute(pedestrianGraph,a,b);
-  scene.add(flat(190,175,color.grass,0,-.09,2));
+  scene.add(flat(WORLD_BOUNDS.maxX-WORLD_BOUNDS.minX+18,
+    WORLD_BOUNDS.maxZ-WORLD_BOUNDS.minZ+18,color.grass,0,-.09,
+    (WORLD_BOUNDS.minZ+WORLD_BOUNDS.maxZ)/2));
+  const cityInfrastructure=createCityInfrastructure(scene,{quality:'mobile'});
 
   // A gentle, readable network of village streets, local lanes and short paths.
   for(let i=0;i<PATH_SEGMENTS.length;i++){
@@ -90,6 +95,8 @@ export function createTown(scene){
     name:b.name,kind:b.kind,entrance:[...b.entrance],lotIndex:b.lotIndex??null
   }));
   for(const b of BUILDINGS){
+    // District sites render with the approved procedural fairy architecture
+    // until Worker 2/3 renderer modules are available. No imports required.
     const model=createFairyBuilding(b,{
       family:b.kind==='civic'?'moonspire':
         b.kind==='bakery'?'storybook':
@@ -99,6 +106,7 @@ export function createTown(scene){
     });
     scene.add(model);buildingModels.set(b.id,model);
     const front=b.z+b.d/2;
+    if(b.district)continue; // district public spaces belong to city infrastructure
     scene.add(flat(2.3,1.25,0xc8a986,b.x,-.012,front+.86));
     for(const offset of [-b.w/2+.9,b.w/2-.9]){
       scene.add(box(.95,.45,.8,0xad8766,b.x+offset,.26,front+.55));
@@ -208,7 +216,7 @@ export function createTown(scene){
 
   const player=makePerson('kid',{shirt:0x7aaf96,hair:0x634f4e,trousers:0x6a91a4});
   scene.add(player);
-  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:5});
+  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
@@ -274,6 +282,7 @@ export function createTown(scene){
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
+    cityInfrastructure,districtSites:DISTRICT_SITES,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation};
 }

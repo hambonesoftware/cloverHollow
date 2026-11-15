@@ -1,4 +1,5 @@
 import { LOTS } from '../rules.js';
+import { DISTRICT_SITES, DISTRICT_PATHS, DISTRICT_PLACES, WORLD_BOUNDS, DISTRICT_PUBLIC_SPOTS } from './district-plan.js';
 
 /**
  * Outdoor-only geometry metadata. World units follow our 2.2-unit chibi scale.
@@ -35,7 +36,8 @@ export const BUILDINGS = Object.freeze([
     id:`lot-${i}`,x:lot.x,z:lot.z,w:8,d:7,name:lot.name,
     roof:lot.roof,wall:0xffedd4,kind:'lot',lotIndex:i,
     entrance:Object.freeze([lot.x,lot.z+5])
-  }))
+  })),
+  ...DISTRICT_SITES
 ]);
 
 /**
@@ -60,7 +62,8 @@ export const PATH_SEGMENTS = Object.freeze([
   [-53,61,-53,63], [-67,34,-67,46], [52,61,52,63],
   [-8,60,-8,63],
   // Three independently selectable player homes.
-  [8,39,8,46], [35,35,35,46], [-33,38,-33,46]
+  [8,39,8,46], [35,35,35,46], [-33,38,-33,46],
+  ...DISTRICT_PATHS
 ].map(segment => Object.freeze(segment)));
 
 export const PLACES = Object.freeze({
@@ -77,18 +80,19 @@ export const PLACES = Object.freeze({
   south:Object.freeze([0,46]),
   woods:Object.freeze([-55,-40]),
   creek:Object.freeze([52,-9]),
-  north:Object.freeze([0,63])
+  north:Object.freeze([0,63]),
+  ...DISTRICT_PLACES
 });
 
 export const PLAZA_SOCIAL_SPOTS = Object.freeze([
-  [-5,-3],[5,-3],[-5,13],[5,13],[-9,4],[9,4]
+  [-5,-3],[5,-3],[-5,13],[5,13],[-9,4],[9,4],...DISTRICT_PUBLIC_SPOTS
 ].map(point=>Object.freeze(point)));
 
 /** Physical blockers only. Landscaping is kept outside the pedestrian network. */
 export function createOutdoorCollision(buildings=BUILDINGS) {
   const obstacles=buildings.map(({id,x,z,w,d})=>({id,x,z,w,d}));
   function walkable(x,z) {
-    if (!Number.isFinite(x)||!Number.isFinite(z)||Math.abs(x)>81||z< -68||z>74) return false;
+    if (!Number.isFinite(x)||!Number.isFinite(z)||x<WORLD_BOUNDS.minX||x>WORLD_BOUNDS.maxX||z<WORLD_BOUNDS.minZ||z>WORLD_BOUNDS.maxZ) return false;
     // The river is crossed by a bridge at z=-9; the playable neighborhood stays west.
     if (x>61&&x<71&&Math.abs(z+9)>4) return false;
     if (Math.hypot(x, z-4)<2.9) return false; // plaza well
