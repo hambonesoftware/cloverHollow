@@ -47,12 +47,11 @@ export const DISTRICT_LANDMARKS=Object.freeze([
 /** Axis-aligned paths; all endpoints are integers for one-unit graph sampling. */
 export const DISTRICT_PATHS=Object.freeze([
   // Connection to the old southern market street and Mayor's Hall.
-  [-55,-40,-55,-60],[-55,-60,0,-60],[0,-60,0,-9],
+  [-55,-40,-55,-60],[-55,-60,9,-60],[9,-60,9,-9],
   // The broad Old Town merchant spine, frontage walks and cross streets.
   [-69,-70,7,-70],[-69,-94,7,-94],[-69,-112,7,-112],
-  [-69,-70,-69,-112],[-55,-60,-55,-112],
-  [-40,-60,-40,-112],[-21,-60,-21,-112],
-  [-4,-60,-4,-112],[7,-60,7,-112],
+  [-69,-70,-69,-112],[-50,-60,-50,-112],
+  [-31,-60,-31,-112],[-10,-60,-10,-112],[7,-60,7,-112],
   // Door approach branches from the north-facing storefronts.
   [-59,-70,-59,-70],[-40,-70,-40,-70],[-21,-70,-21,-70],[-4,-70,-4,-70],
   [-59,-94,-59,-94],[-39,-94,-39,-94],[-19,-94,-19,-94],[-2,-94,-2,-94],
