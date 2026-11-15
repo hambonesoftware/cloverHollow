@@ -112,6 +112,15 @@ export class GameViewModel {
     this._commit();
     return success();
   }
+  awardKeepsake(name) {
+    if (typeof name !== 'string' || name.trim().length===0 || name.length>80)
+      return failure('Unknown keepsake.');
+    // One copy per visit/activity reward, preserved in the existing gifts map.
+    if ((this.model.gifts[name]??0)>0) return success({name,alreadyOwned:true});
+    this.model.gifts[name]=1;
+    this._commit();
+    return success({name,alreadyOwned:false});
+  }
   talkTo(name) {
     if (typeof name !== 'string' || !name.trim()) return failure('Unknown neighbor.');
     const counts = this.model.story.conversations;
