@@ -9,7 +9,7 @@ const colors=[
  {wall:0xf0d8d9,roof:0x887ca4,trim:0xfff1d5,timber:0x8c6759,stone:0xbeb6b0,foliage:0x79a78a},
  {wall:0xe4e3f0,roof:0xc28c63,trim:0xffeac7,timber:0x866453,stone:0xc9b4a0,foliage:0x79a78a}
 ];
-const aliases={'town-hall':'town-hall','townHall':'town-hall',mayor:'mayor-office','mayor-office':'mayor-office',post:'post-office','post-office':'post-office',library:'library',community:'community-center','community-center':'community-center',bakery:'bakery',furniture:'furniture',general:'general-goods','general-goods':'general-goods',flower:'florist',florist:'florist',cafe:'cafe',tailor:'tailor',bookshop:'bookshop',market:'market'};
+const aliases={clinic:'clinic',records:'records',clocktower:'town-hall','town-hall':'town-hall','townHall':'town-hall',mayor:'mayor-office','mayor-office':'mayor-office',post:'post-office','post-office':'post-office',library:'library',community:'community-center','community-center':'community-center',bakery:'bakery',furniture:'furniture',general:'general-goods','general-goods':'general-goods',flower:'florist',florist:'florist',cafe:'cafe',tailor:'tailor',bookshop:'bookshop',market:'market'};
 const civic=new Set(['town-hall','mayor-office','post-office','library','community-center']);
 function hash(value){let h=2166136261;for(const c of String(value)){h=Math.imul(h^c.charCodeAt(0),16777619);}return h>>>0;}
 function random(seed){let s=seed>>>0;return ()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/4294967296;};}
@@ -108,8 +108,8 @@ export function createDowntownDistrict(scene,{sites=[],seed=1,quality='medium'}=
    }
   }
   const entrance=site.entrance&&typeof site.entrance==='object'?site.entrance:null;
-  const ix=Number.isFinite(entrance?.x)?entrance.x:site.x;
-  const iz=Number.isFinite(entrance?.z)?entrance.z:site.z+site.d/2+.9;
+  const ix=Array.isArray(entrance)&&Number.isFinite(entrance[0])?entrance[0]:Number.isFinite(entrance?.x)?entrance.x:site.x;
+  const iz=Array.isArray(entrance)&&Number.isFinite(entrance[1])?entrance[1]:Number.isFinite(entrance?.z)?entrance.z:site.z+site.d/2+1.5;
   for(const {action,label} of serviceActions(kind))interactables.push({id:site.id+':'+action,siteId:site.id,kind,label,x:ix,z:iz,radius:2.2,action});
   if(kind==='town-hall')animated.push({root:g,clock:true});
  }
