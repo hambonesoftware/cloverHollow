@@ -57,8 +57,10 @@ try {
     'The live society must include multiple recognizable professions');
   assert.ok(visuals.registeredStations>=2,
     'Worker 1 activity stations must reach Worker 2 through Worker 3');
-  assert.ok(visuals.lightingActive&&visuals.districtBuildings>=10,
-    'Worker 3 lighting and downtown must be present in the real outdoor scene');
+  // Eight registered Old Town buildings plus the existing Mayor's Office
+  // are the nine actual downtown structures; do not invent a tenth site.
+  assert.ok(visuals.lightingActive&&visuals.districtBuildings>=9,
+    'Worker 3 lighting and all nine downtown landmarks must be mounted');
   const pipState=await page.evaluate(()=>window.__cloverTest.npcState('pip'));
   assert.equal(pipState.occupation,'baker');
   assert.ok(typeof pipState.pose==='string');
