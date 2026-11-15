@@ -142,6 +142,7 @@ export function createNpcSimulation(graph,{visitorCount=5}={}){
         goal=residentDestination(a,a.ordinal,time,activity);
       }
       a.visible=true;a.intention=activity;
+      if((activity==='working'||activity==='delivery')&&a.stationId&&a.station)goal=[a.station.x,a.station.z];
       setGoal(a,goal);
       let remaining=step*(a.visitor?1.55:1.7);
       a.moving=false;
