@@ -70,12 +70,12 @@ These names/signatures are assumed for the two parallel features. **Coordinate w
 
 - `setVisible(boolean)`: show / hide the interior.
 - `sync(placements, gameState)`: reconcile render meshes with placement records `{id,type,x,z,r}`. The second argument is optional and can be ignored.
-- `preview({type,x,z,r,valid})`: render translucent green/red placement feedback.
+- `preview({type,x,z,r}, valid)`: render translucent green/red placement feedback (valid is passed separately).
 - `clearPreview()`: remove the ghost object.
-- `pickFurniture(pointerNDC, camera)`: return the ID string of a hit placed item, or an object with `id`, or null.
-- `floorPosition(pointerNDC, camera)`: intersect the room floor and return `{x,z}` in room coordinates, or null.
+- `pickFurniture(raycaster)`: return a placement object with `id`, an ID string, or null.
+- `floorPosition(raycaster)`: intersect the room floor and return `{x,z}` in room coordinates, or null.
 
-`pointerNDC` is a Three.js Vector2 with coordinates from -1 to 1. Room coordinates are centered at zero, the floor is `y=0`, and `r` is an integer quarter-turn in `0..3`. The renderer must not mutate inventories or decide whether an item is legally placeable: the authoritative `canPlace` in `rules.js` does that.
+The game shell creates a Three.js `Raycaster` from normalized screen coordinates before calling both picking methods. Room coordinates are centered at zero, the floor is `y=0`, and `r` is an integer quarter-turn in `0..3`. The renderer must not mutate inventories or decide whether an item is legally placeable: the authoritative `canPlace` in `rules.js` does that.
 
 **Temporary preview adapter:** until the independent interior branch is merged, `src/main.js` catches a missing dynamic dollhouse import and renders a simple fallback two-wall room. This keeps the feature branch loadable while leaving `src/interiors/` entirely untouched. Final visual acceptance requires testing the real interior renderer.
 
