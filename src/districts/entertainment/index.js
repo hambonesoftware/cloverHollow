@@ -131,7 +131,13 @@ function arcade(g,site,lights){
 }
 function festival(g,site,lights){
   box(g,site.w,.09,site.d,C.grass,0,.03,0);
-  stage(g,site.w*.6,Math.min(2.4,site.d*.33),-site.d*.22);
+  // The central promenade remains visually open for walkers and NPCs.
+  // The performance stage occupies the eastern side of the public green.
+  box(g,2.65,.025,site.d*.96,C.stone,0,.095,0);
+  const stageWing=new THREE.Group();
+  stageWing.position.x=site.w*.36;
+  g.add(stageWing);
+  stage(stageWing,site.w*.38,Math.min(2.4,site.d*.33),-site.d*.22);
   for(const side of [-1,1]){
     post(g,side*(site.w/2-.65),site.d*.28,3.3);
     post(g,side*(site.w/2-.65),-site.d*.28,3.3);
