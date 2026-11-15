@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createNpcSimulation,DAY_LENGTH} from './town-life.js';
 import {timePhase} from '../behaviors/activity-director.js';
-import {createPedestrianGraph} from '../world/navigation.js';
 import {RESIDENTS} from './town-life.js';
 test('named residents preserve IDs and homes',()=>{
  assert.deepEqual(RESIDENTS.map(r=>r.id),['mayor','mabel','pip','bruno','dot','biscuit','fennel','hazel','clover','reed']);
