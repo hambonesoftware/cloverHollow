@@ -3,6 +3,7 @@ import {buildApprovedCottage} from '../../architecture/approved-cottage.js';
 import {roundedBox,fairyMaterial} from '../../visual/gfx.js';
 import {createCivicInterior} from '../../civic/interior.js';
 import {serviceActions} from '../../services/downtown/index.js';
+import {decorateDowntownBuilding} from './architectural-details.js';
 const colors=[
  {wall:0xf6dfc2,roof:0xb66e76,trim:0xffedcc,timber:0x8c6452,stone:0xc8b6a1,foliage:0x79a78a},
  {wall:0xe2e9d3,roof:0x718f8d,trim:0xffe9bd,timber:0x906b57,stone:0xcbb7a0,foliage:0x7ca47e},
@@ -104,7 +105,7 @@ export function createDowntownDistrict(scene,{sites=[],seed=1,quality='medium'}=
  if(!scene||typeof scene.add!=='function')throw new TypeError('Three.js scene required');
  if(!Array.isArray(sites))throw new TypeError('sites must be an array');
  const root=new THREE.Group();root.name='Clover Square downtown';scene.add(root);
- const interactables=[],animated=[],ids=new Set();
+ const interactables=[],activityAnchors=[],animated=[],ids=new Set();
  for(const site of sites){
   if(!site||typeof site.id!=='string'||!Number.isFinite(site.x)||!Number.isFinite(site.z)||!(site.w>0)||!(site.d>0))throw new TypeError('Invalid downtown site');
   if(ids.has(site.id))throw new Error('Duplicate downtown site '+site.id);ids.add(site.id);
@@ -121,6 +122,13 @@ export function createDowntownDistrict(scene,{sites=[],seed=1,quality='medium'}=
    if(['bakery','cafe','tailor','bookshop','florist','furniture','general-goods'].includes(kind))balconies(g,w,front+.08,rng);
    landmark(g,kind,w,d,palette,rng);
    sign(g,site.name||site.id,w,front+.64);
+   // Approved roof geometry remains the authoritative shell. Decorations
+   // extend its storefront and civic language without rebuilding the roof.
+   activityAnchors.push(...decorateDowntownBuilding(g,site,kind,{
+    seed:String(seed)+':'+String(site.seed??site.id),quality,
+    roofParameters:{width:w+2*(.37+p.roofOverhang*.76),
+     rise:3.18*p.roofCurvature,base:p.wallHeight+.54}
+   }));
    if(civic.has(kind)){
     const room=createCivicInterior({kind,w:Math.min(w-1,8),d:Math.min(d-1,7),seed:site.seed??seed});
     // Exposed public dollhouse behind front entrance, available for a dedicated interior view.
@@ -135,7 +143,7 @@ export function createDowntownDistrict(scene,{sites=[],seed=1,quality='medium'}=
   if(kind==='town-hall')animated.push({root:g,clock:true});
  }
  let disposed=false;
- return {root,interactables,update(dt,daySeconds){if(disposed)return;for(const item of animated)item.root.userData.daySeconds=daySeconds;},
+ return {root,interactables,activityAnchors,update(dt,daySeconds){if(disposed)return;for(const item of animated)item.root.userData.daySeconds=daySeconds;},
   dispose(){
     if(disposed)return;
     disposed=true;
