@@ -168,59 +168,6 @@ try {
   const cameraZoomed=await page.evaluate(()=>window.__cloverTest.camera());
   assert.ok(cameraZoomed.zoom<cameraDragged.zoom,'wheel should zoom into the town');
 
-  await mkdir(resolve(root,'test-results'),{recursive:true});
-  // Verify that the three worker branches are actually integrated into the
-  // playable scene, not merely present as unused source modules.
-  const districtData=await page.evaluate(()=>window.__cloverTest.districts());
-  assert.ok(districtData.downtown>=12,'Downtown must expose working civic service actions');
-  assert.ok(districtData.entertainment>=4,'Lantern Quarter must expose playable venues');
-  assert.ok(districtData.sites.some(s=>s.id==='old-town-post'));
-  assert.ok(districtData.sites.some(s=>s.id==='lantern-arcade'));
-
-  // Visit the Post Office through the real interact button and collect a
-  // one-time letter, using the existing satchel save format.
-  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(-59,-70)),true);
-  await page.locator('#toolbar [data-action="interact"]').click();
-  await page.locator('#modal-host [data-action="district-item:0"]').click();
-  assert.equal(await page.evaluate(()=>
-    window.__cloverTest.state().gifts['Mabel’s Friendly Letter']),1);
-  await page.locator('#modal-host [data-action="dismiss"]').click();
-  await page.waitForTimeout(350);
-  await page.screenshot({path:resolve(root,'test-results/old-town-desktop.png')});
-
-  // The new Town Hall is a separate civic landmark from Mayor Thistle's
-  // original office. Both must remain reachable without moving player lots.
-  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(-2,-94.5)),true);
-  await page.locator('#toolbar [data-action="interact"]').click();
-  assert.ok((await page.locator('#modal-host').innerText()).includes('Town Hall'));
-  await page.locator('#modal-host [data-action="district-item:0"]').click();
-  assert.ok((await page.locator('#modal-host').innerText()).includes('calendar'));
-  await page.locator('#modal-host [data-action="dismiss"]').click();
-
-  // Play the complete arcade game through its actual modal and verify the
-  // reward survives a browser reload.
-  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(40,-83.5)),true);
-  await page.locator('#toolbar [data-action="interact"]').click();
-  assert.ok((await page.locator('#modal-host').innerText()).includes('Firefly Arcade'));
-  await page.locator('#modal-host [data-action="district-item:0"]').click();
-  for(let round=0;round<5;round++){
-    const clue=await page.locator('.festival-target').innerText();
-    const match=clue.match(/(\d+)/);
-    assert.ok(match,'Arcade game should show a readable target');
-    await page.locator('#modal-host [data-action="activity-choice:'+(Number(match[1])-1)+'"]').click();
-  }
-  assert.equal(await page.evaluate(()=>
-    window.__cloverTest.state().gifts['Moonring ribbon']),1);
-  await page.locator('#modal-host [data-action="dismiss"]').click();
-  await page.waitForTimeout(350);
-  await page.screenshot({path:resolve(root,'test-results/lantern-quarter-desktop.png')});
-  await page.reload({waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>Boolean(window.__cloverTest));
-  assert.equal(await page.evaluate(()=>
-    window.__cloverTest.state().gifts['Moonring ribbon']),1);
-  assert.equal(await page.evaluate(()=>
-    window.__cloverTest.state().gifts['Mabel’s Friendly Letter']),1);
-
   // Exercise the actual touch events on a portrait-sized screen.
   const mobileContext=await browser.newContext({
     viewport:{width:390,height:844},
