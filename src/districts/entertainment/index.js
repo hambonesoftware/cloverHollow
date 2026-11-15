@@ -129,6 +129,18 @@ function arcade(g,site,lights){
   }
   box(g,site.w*.5,.85,.75,C.wood??C.timber,0,.45,site.d*.3);
 }
+function cafe(g,site,lights){
+  building(g,site,'Moonmilk Cafe',C.honey,lights);
+  // A tiny lantern-lit terrace; keep the middle entrance clear.
+  const front=site.d/2;
+  for(const side of [-1,1]){
+    const x=side*Math.min(3.4,site.w*.32);
+    box(g,1.05,.13,1.05,C.wood,x,1.05,front+1.4);
+    box(g,.14,1,.14,C.timber,x,.53,front+1.4);
+    for(const dx of [-.78,.78])seat(g,x+dx,.55,front+1.45);
+    ball(g,.17,C.glass,x,1.24,front+1.4);
+  }
+}
 function festival(g,site,lights){
   box(g,site.w,.09,site.d,C.grass,0,.03,0);
   // The central promenade remains visually open for walkers and NPCs.
@@ -188,6 +200,7 @@ function normalizeKind(kind=''){
   if(k.includes('theat')||k.includes('moonbeam'))return 'theater';
   if(k.includes('music')||k.includes('firefly')||k.includes('concert'))return 'music';
   if(k.includes('arcade'))return 'arcade';
+  if(k.includes('cafe')||k.includes('dessert')||k.includes('tea'))return 'cafe';
   if(k.includes('festival')||k.includes('green')||k.includes('amphi'))return 'festival';
   if(k.includes('garden')||k.includes('starlight'))return 'garden';
   if(k.includes('promenade')||k.includes('walk')||k.includes('lantern'))return 'promenade';
@@ -196,14 +209,14 @@ function normalizeKind(kind=''){
 export function createEntertainmentDistrict(scene,{sites=[],seed=1,quality='medium'}={}){
   const root=new THREE.Group();root.name='Lantern Quarter';scene.add(root);
   const interactables=[],lights=[],fireflies=[],venueSites=[];
-  const builders={theater,music,arcade,festival,garden,promenade};
+  const builders={theater,music,arcade,cafe,festival,garden,promenade};
   for(const site of sites){
     const kind=normalizeKind(site.kind||site.name);
     if(!kind||![site.x,site.z,site.w,site.d].every(Number.isFinite)||site.w<3||site.d<3)continue;
     const group=new THREE.Group();group.position.set(site.x,0,site.z);group.name=site.name||kind;
     root.add(group);builders[kind](group,site,lights,fireflies);
     venueSites.push({...site,kind});
-    const e=entrance(site),actions={theater:'theater-encore',music:'firefly-rhythm',arcade:'ring-toss',festival:'ring-toss',garden:'visit-garden',promenade:'visit-promenade'};
+    const e=entrance(site),actions={theater:'theater-encore',music:'firefly-rhythm',arcade:'ring-toss',cafe:'visit-cafe',festival:'ring-toss',garden:'visit-garden',promenade:'visit-promenade'};
     interactables.push({id:String(site.id)+':visit',siteId:site.id,kind,label:'Visit '+(site.name||kind),x:e.x,z:e.z,radius:1.65,action:actions[kind]});
     if(kind==='arcade')interactables.push({id:String(site.id)+':rhythm',siteId:site.id,kind:'activity',label:'Play Firefly Rhythm',x:e.x+Math.min(.8,site.w*.1),z:e.z,radius:1.65,action:'firefly-rhythm'});
   }
