@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 import {roundedBox,fairyMaterial} from '../../visual/gfx.js';
+import {buildApprovedCottage} from '../../architecture/approved-cottage.js';
 import {eveningFactor,getEntertainmentEvents,attendancePoints} from '../../events/entertainment/index.js';
 
-const C={timber:0x906747,trim:0xffe2b5,stone:0xb4b1a1,roof:0x9e739c,roof2:0x668f8c,wall:0xffe7ce,glass:0xffd89a,grass:0x9fbd85,flower:0xf3b0c6,blue:0x96c9d0,lantern:0xffd18c};
+const C={timber:0x906747,wood:0x906747,trim:0xffe2b5,stone:0xb4b1a1,roof:0x9e739c,roof2:0x668f8c,wall:0xffe7ce,glass:0xffd89a,grass:0x9fbd85,flower:0xf3b0c6,honey:0xf1c97d,blue:0x96c9d0,lantern:0xffd18c};
 const mats=new Map(),geos=new Map();
 function mat(color,glow=false){
   const key=color+':'+glow;
@@ -76,26 +77,21 @@ function sign(g,label,y,z,w){
 }
 function entrance(site){
   const e=site.entrance;
+  if(Array.isArray(e)&&Number.isFinite(e[0])&&Number.isFinite(e[1]))return {x:e[0],z:e[1]};
   if(e&&Number.isFinite(e.x)&&Number.isFinite(e.z))return {x:e.x,z:e.z};
-  return {x:site.x,z:site.z+site.d/2+.85};
+  return {x:site.x,z:site.z+site.d/2+1.5};
 }
 function building(g,site,label,roofColor,lights){
   const w=site.w,d=site.d;
-  box(g,w,3.65,d,C.wall,0,1.94,0);
-  roof(g,w,d,3.82,roofColor);
-  for(const side of [-1,1]){
-    box(g,.24,3.45,.28,C.timber,side*(w/2-.14),1.85,d/2+.12);
-    box(g,.78,1.05,.12,C.trim,side*w*.31,2.17,d/2+.13);
-    box(g,.57,.82,.13,C.glass,side*w*.31,2.17,d/2+.21);
-    box(g,.1,.86,.14,C.timber,side*w*.31,2.17,d/2+.29);
-    box(g,.66,.1,.14,C.timber,side*w*.31,2.17,d/2+.29);
-    lantern(g,side*(w/2-.4),2.85,d/2+.35,lights);
-  }
-  box(g,1.85,2.65,.16,C.timber,0,1.39,d/2+.17);
-  box(g,1.52,2.35,.17,0x8da79d,0,1.35,d/2+.27);
-  ball(g,.11,C.lantern,.48,1.35,d/2+.4);
-  box(g,2.55,.16,.85,C.stone,0,.12,d/2+.55);
-  sign(g,label,3.45,d/2+.3,w);
+  // Reuse exactly the same approved continuous, curved wall-and-roof system
+  // that defines the player's cottage and downtown architecture.
+  const rng=(()=>{let value=0;for(const c of String(site.seed||site.id||label))value=(Math.imul(value,31)+c.charCodeAt(0))>>>0;return()=>((value=(Math.imul(value,1664525)+1013904223)>>>0)/4294967296);})();
+  const palette={wall:C.wall,roof:roofColor,trim:C.trim,timber:C.timber,stone:C.stone,foliage:C.grass};
+  const style={w,d,wallHeight:3.9,roofOverhang:.36,roofCurvature:.80,palette};
+  buildApprovedCottage(g,style,rng,{moonspire:label.includes('Theater')||label.includes('Music')});
+  // The only new geometry on the front is venue-specific signage.
+  sign(g,label,3.46,d/2+.66,w);
+  for(const side of [-1,1])lantern(g,side*(w/2-.42),3.14,d/2+.58,lights);
 }
 function seat(g,x,y,z){
   box(g,.66,.14,.62,C.timber,x,y,z);box(g,.66,.65,.12,C.roof,x,y+.35,z-.27);
