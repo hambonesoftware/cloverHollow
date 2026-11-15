@@ -1,4 +1,4 @@
-// Game state, house placement, and data. No browser/Three.js dependencies.
+// Authoritative Clover Hollow game data and pure placement/save rules.
 export const SAVE_KEY = 'clover-hollow-v1';
 export const ROOM = Object.freeze({ width: 9, depth: 8, wall: 4 });
 export const LOTS = Object.freeze([
@@ -28,28 +28,59 @@ export const STARTER_PLACEMENTS = Object.freeze([
   { id: 'starter-rug', type: 'rug', x: 0, z: .6, r: 0 }
 ]);
 export function initialSave() {
-  return { version: 1, deed: null, petals: 165, gifts: {}, inventory: { ...STARTING_FURNITURE },
-    placements: STARTER_PLACEMENTS.map(p => ({ ...p })), town: { x: 1.5, z: 8.5 },
-    daySeconds: 110, greeting: false, outfit: 'Mint' };
+  return {
+    version: 1, deed: null, petals: 165, gifts: {}, supplies: { 'Welcome Seeds': 3 },
+    inventory: { ...STARTING_FURNITURE },
+    placements: STARTER_PLACEMENTS.map(p => ({ ...p })),
+    town: { x: 1.5, z: 8.5 }, daySeconds: 110, greeting: false, outfit: 'Mint',
+    scene: 'town', nextFurnitureId: 1,
+    story: { housewarming: false, homeVisits: 0, conversations: {} }
+  };
 }
 export function loadSave(storage) {
+  const fallback = initialSave();
   try {
-    const data = JSON.parse(storage.getItem(SAVE_KEY));
-    if (data && data.version === 1) {
-      const fallback = initialSave();
-      const legal = new Set(Object.keys(FURNITURE));
-      return { ...fallback, ...data,
-        inventory: { ...fallback.inventory, ...data.inventory },
-        town: { ...fallback.town, ...data.town },
-        gifts: data.gifts && typeof data.gifts === 'object' ? data.gifts : {},
-        placements: Array.isArray(data.placements) ? data.placements.filter(p => legal.has(p.type) && Number.isFinite(p.x) && Number.isFinite(p.z)) : fallback.placements
-      };
+    const data = JSON.parse(storage?.getItem(SAVE_KEY) ?? 'null');
+    if (!data || data.version !== 1 || typeof data !== 'object') return fallback;
+    const inventory = { ...fallback.inventory };
+    for (const [type, count] of Object.entries(data.inventory ?? {})) {
+      if (FURNITURE[type] && Number.isSafeInteger(count) && count >= 0) inventory[type] = count;
     }
-  } catch {}
-  return initialSave();
+    const placements = [];
+    const used = new Set();
+    for (const p of Array.isArray(data.placements) ? data.placements : fallback.placements) {
+      if (!p || typeof p.id !== 'string' || used.has(p.id) || !FURNITURE[p.type] ||
+          !Number.isFinite(p.x) || !Number.isFinite(p.z) || !Number.isInteger(p.r) ||
+          p.r < 0 || p.r > 3 || !canPlace(p, placements)) continue;
+      if (placements.filter(item => item.type === p.type).length >= (inventory[p.type] ?? 0)) continue;
+      placements.push({ id: p.id, type: p.type, x: p.x, z: p.z, r: p.r });
+      used.add(p.id);
+    }
+    const town = { x: Number.isFinite(data.town?.x) ? data.town.x : fallback.town.x,
+                   z: Number.isFinite(data.town?.z) ? data.town.z : fallback.town.z };
+    const validCounts = value => Object.fromEntries(
+      Object.entries(value && typeof value === 'object' && !Array.isArray(value) ? value : {})
+        .filter(([key, count]) => key.length < 120 && Number.isSafeInteger(count) && count >= 0)
+    );
+    const deed = Number.isInteger(data.deed) && data.deed >= 0 && data.deed < LOTS.length ? data.deed : null;
+    return {
+      ...fallback, deed, inventory, placements, town,
+      petals: Number.isSafeInteger(data.petals) && data.petals >= 0 ? data.petals : fallback.petals,
+      daySeconds: Number.isFinite(data.daySeconds) && data.daySeconds >= 0 ? data.daySeconds : fallback.daySeconds,
+      greeting: Boolean(data.greeting), outfit: typeof data.outfit === 'string' ? data.outfit : fallback.outfit,
+      scene: deed !== null && data.scene === 'home' ? 'home' : 'town',
+      nextFurnitureId: Number.isSafeInteger(data.nextFurnitureId) && data.nextFurnitureId > 0 ? data.nextFurnitureId : 1,
+      gifts: validCounts(data.gifts), supplies: { ...fallback.supplies, ...validCounts(data.supplies) },
+      story: {
+        housewarming: Boolean(data.story?.housewarming),
+        homeVisits: Number.isSafeInteger(data.story?.homeVisits) && data.story.homeVisits >= 0 ? data.story.homeVisits : 0,
+        conversations: validCounts(data.story?.conversations)
+      }
+    };
+  } catch { return fallback; }
 }
 export function saveGame(storage, state) {
-  try { storage.setItem(SAVE_KEY, JSON.stringify(state)); return true; }
+  try { storage?.setItem(SAVE_KEY, JSON.stringify(state)); return Boolean(storage); }
   catch { return false; }
 }
 export function footprint(p) {
@@ -60,13 +91,14 @@ export function footprint(p) {
 }
 export function canPlace(candidate, others, ignoreId = null) {
   const f = FURNITURE[candidate.type], dim = footprint(candidate);
-  if (!dim || !Number.isFinite(candidate.x) || !Number.isFinite(candidate.z)) return false;
+  if (!dim || !Number.isFinite(candidate.x) || !Number.isFinite(candidate.z) ||
+      !Number.isInteger(candidate.r ?? 0)) return false;
   const outer = .27;
   if (candidate.x - dim.w / 2 < -ROOM.width / 2 + outer ||
       candidate.x + dim.w / 2 > ROOM.width / 2 - outer ||
       candidate.z - dim.d / 2 < -ROOM.depth / 2 + outer ||
       candidate.z + dim.d / 2 > ROOM.depth / 2 - outer) return false;
-  // The walk-in threshold at the front of the dollhouse must stay clear.
+  // Keep the open-front doorway clear.
   if (!f.floor && Math.abs(candidate.x) < 1.2 + dim.w / 2 && candidate.z + dim.d / 2 > 2.65) return false;
   for (const other of others) {
     if (other.id === ignoreId) continue;

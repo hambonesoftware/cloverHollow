@@ -1,0 +1,82 @@
+name: Clover Hollow Checks and Pages
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Pure state and syntax tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check module syntax
+        run: |
+          node --check src/main.js
+          node --check src/ui/app-ui.js
+          node --check src/viewmodels/game-view-model.js
+          node --check src/viewmodels/decorating-view-model.js
+          node --check src/story/dialogue.js
+          node --check src/rules.js
+          node --check src/art.js
+          node --check src/town.js
+          node --check src/world/layout.js
+          node --check src/world/navigation.js
+          node --check src/simulation/town-life.js
+          node --check src/interiors/dollhouse.js
+          node --check src/interiors/placement-controller.js
+          node --check src/interiors/room-walker.js
+      - name: Run unit tests
+        run: node --test test/*.test.js src/viewmodels/*.test.js src/persistence/*.test.js src/interiors/*.test.js src/simulation/*.test.js
+
+  browser:
+    name: Three.js playable town and cottage
+    runs-on: ubuntu-24.04
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install headless Chromium test driver
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Exercise the real Three.js experience
+        run: node test/browser-smoke.mjs
+      - name: Upload failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-hollow-browser-failure
+          path: test-results/
+          if-no-files-found: ignore
+
+  deploy:
+    name: Publish to GitHub Pages
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [test, browser]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
