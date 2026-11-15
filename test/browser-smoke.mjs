@@ -45,6 +45,28 @@ try {
   assert.ok(await page.evaluate(() => window.__cloverTest.actorCount() >= 15),
     'Outdoor town should have residents and ambient visitors');
 
+  // Integration acceptance for all three independent Clover Hollow 4.0 PRs:
+  // real mounted downtown props, actual outfits/poses, valid activity stations,
+  // and the active lighting engine. Unused source modules must fail this check.
+  const visuals=await page.evaluate(()=>window.__cloverTest.worldVisuals());
+  assert.ok(visuals.downtownProps>=30,
+    'Worker 1 procedural storefront props must render in the playable downtown');
+  assert.ok(visuals.dressedCitizens>=15,
+    'Worker 2 occupation outfits must be mounted on the actual NPC models');
+  assert.ok(visuals.professions>=6,
+    'The live society must include multiple recognizable professions');
+  assert.ok(visuals.registeredStations>=2,
+    'Worker 1 activity stations must reach Worker 2 through Worker 3');
+  assert.ok(visuals.lightingActive&&visuals.districtBuildings>=10,
+    'Worker 3 lighting and downtown must be present in the real outdoor scene');
+  const pipState=await page.evaluate(()=>window.__cloverTest.npcState('pip'));
+  assert.equal(pipState.occupation,'baker');
+  assert.ok(typeof pipState.pose==='string');
+  const gfx=await page.evaluate(()=>window.__cloverTest.graphics());
+  assert.ok(['low','medium','high'].includes(gfx.quality));
+  assert.ok(gfx.drawCalls>0&&gfx.triangles>0,
+    'Graphics profiler must measure actual rendered triangles and draw calls');
+
   // Welcome -> property choice -> official deed.
   await page.locator('[data-action="welcome"]').click();
   await page.locator('[data-action="lot:0"]').click();
