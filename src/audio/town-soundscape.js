@@ -1,4 +1,6 @@
-// Optional procedural ambience. No asset downloads, autoplay or external audio.
+// Optional procedural ambience and an original melodic theme. No asset
+// downloads, autoplay, copyrighted recordings or external audio.
+import {sampleCloverTheme} from './clover-theme.js';
 // AudioContext is created only after the player explicitly enables sound.
 const clamp=v=>Math.max(0,Math.min(1,v));
 const near=(x,z,px,pz,r)=>clamp(1-Math.hypot(x-px,z-pz)/r);
@@ -17,7 +19,7 @@ export function sampleTownSound(x=0,z=0,seconds=0){
 }
 export function createTownSoundscape(root=typeof window==='undefined'?null:window){
   let context=null,master=null,marketGain=null,waterGain=null;
-  let enabled=false,elapsed=0,lastBell=-1;
+  let enabled=false,elapsed=0,lastBell=-1,themeClock=0,themeStep=0;
   const voices=[];
   function makeNoise(gain,frequency,filterType='lowpass'){
     const length=Math.floor(context.sampleRate*1.8);
@@ -60,6 +62,24 @@ export function createTownSoundscape(root=typeof window==='undefined'?null:windo
     osc.connect(gain).connect(master);osc.start(at);osc.stop(at+length+.02);
     osc.onended=()=>{osc.disconnect();gain.disconnect();};
   }
+  function playTheme(spec){
+    if(!spec||!enabled||context?.state!=='running')return;
+    function voice(freq,level){
+      const at=context.currentTime;
+      const tone=context.createOscillator(),gain=context.createGain();
+      tone.type=spec.type;
+      tone.frequency.value=freq;
+      const end=at+spec.duration;
+      gain.gain.setValueAtTime(.0001,at);
+      gain.gain.exponentialRampToValueAtTime(Math.max(.001,level),at+.035);
+      gain.gain.exponentialRampToValueAtTime(.0001,end);
+      tone.connect(gain).connect(master);
+      tone.start(at);tone.stop(end+.02);
+      tone.onended=()=>{tone.disconnect();gain.disconnect();};
+    }
+    voice(spec.frequency,spec.level);
+    if(spec.harmony)voice(spec.harmony,spec.level*.32);
+  }
   function toggle(on){
     if(!on){
       enabled=false;
@@ -81,7 +101,13 @@ export function createTownSoundscape(root=typeof window==='undefined'?null:windo
     marketGain.gain.setTargetAtTime(outdoors ? .012*mix.market : 0,t,.4);
     waterGain.gain.setTargetAtTime(outdoors ? .018*mix.brook : 0,t,.4);
     if(!outdoors||context.state!=='running')return;
-    elapsed+=Math.max(0,Math.min(.1,dt));
+    const frame=Math.max(0,Math.min(.1,dt));
+    elapsed+=frame;
+    themeClock+=frame;
+    if(themeClock>=.68){
+      themeClock-=.68;
+      playTheme(sampleCloverTheme(themeStep++,mix));
+    }
     // Occasional quiet birdsong and evening insects. No runaway timers.
     if(elapsed>12){
       elapsed=0;
