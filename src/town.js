@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {createStorybookLighting} from './rendering/storybook-lighting.js';
 import {createStreetLife} from './environment/street-life.js';
 import {createPlayableMarket} from './gameplay/market-scene.js';
+import {createMoonringBooth} from './gameplay/moonring-toss.js';
 import {createStorybookAtmosphere} from './atmosphere/storybook-atmosphere.js';
 import { LOTS } from './rules.js';
 import { box, sphere, cylinder, flat, sign, makePerson, tree, flower, gardenBench, lampPost } from './art.js';
@@ -252,6 +253,7 @@ export function createTown(scene,{quality='medium',gifts={}}={}){
   const atmosphere=createStorybookAtmosphere(scene,{quality,walkable,locations:routePoints});
   const streetLife=createStreetLife(scene,{quality});
   const playableMarket=createPlayableMarket(scene,{player,quality,gifts});
+  const moonring=createMoonringBooth(scene,{quality});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
@@ -312,7 +314,7 @@ export function createTown(scene,{quality='medium',gifts={}}={}){
       professions:new Set(simulation.actors.map(actor=>actor.occupation).filter(Boolean)).size,
       registeredStations:simulation.activityDirector?.stations.length??0,
       storyVignettes:streetLife.vignetteCount,
-      playableScenes:1,
+      playableScenes:2,
       playableObjects:playableMarket.adventure.targets().length,
       marketOpen:streetLife.sample(420).marketOpen,
       activeCitizens:simulation.actors.filter(actor=>actor.visible).length,
@@ -342,13 +344,14 @@ export function createTown(scene,{quality='medium',gifts={}}={}){
     atmosphere.update(dt,sky.night);
     streetLife.update(dt,daySeconds,story);
     playableMarket.update(dt);
+    moonring.update(dt);
   }
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
     cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
-    districtActions,storybookLighting,atmosphere,streetLife,playableMarket,
+    districtActions,storybookLighting,atmosphere,streetLife,playableMarket,moonring,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation,visualDiagnostics};
 }
