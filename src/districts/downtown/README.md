@@ -11,7 +11,9 @@ downtown.update(deltaSeconds,daySeconds);
 downtown.dispose();
 ```
 
-Each site is `{id,district,x,z,w,d,name,kind,entrance,seed}`. The `entrance` may be `{x,z}` in world coordinates. Absent entrances default to the positive-Z side. Sites are supplied externally; the district never allocates land or writes navigation, simulation, saves, or world files. All sites are oriented toward +Z. Provide sufficient spacing and footprint dimensions; the approved roof overhang and civic steps project beyond the structural wall footprint. Small footprints below approximately 6x6 are unsuitable.
+Each site is `{id,district,x,z,w,d,name,kind,entrance,seed}`. The `entrance` may be `{x,z}` in world coordinates. Absent entrances default to the positive-Z side. Sites are supplied externally; the district never allocates land or writes navigation, simulation, saves, or world files. Sites may face +Z (the usual north entrance) or -Z
+(`site.facing === 'south'` for the inward-facing Old Market row); the entire
+approved cottage and its shopfront decorations rotate as one. Provide sufficient spacing and footprint dimensions; the approved roof overhang and civic steps project beyond the structural wall footprint. Small footprints below approximately 6x6 are unsuitable.
 
 Kinds: `town-hall`, `mayor-office`, `post-office`, `library`, `community-center`, `bakery`, `furniture`, `general-goods`, `florist`, `cafe`, `tailor`, `bookshop`, `market`. Common camelCase and short aliases are supported.
 
