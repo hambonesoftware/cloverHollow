@@ -3,6 +3,7 @@ import {createStorybookLighting} from './rendering/storybook-lighting.js';
 import {createStreetLife} from './environment/street-life.js';
 import {createPlayableMarket} from './gameplay/market-scene.js';
 import {createMoonringBooth} from './gameplay/moonring-toss.js';
+import {createRoofOcclusion} from './camera/roof-occlusion.js';
 import {createStorybookAtmosphere} from './atmosphere/storybook-atmosphere.js';
 import { LOTS } from './rules.js';
 import { box, sphere, cylinder, flat, sign, makePerson, tree, flower, gardenBench, lampPost } from './art.js';
@@ -315,6 +316,7 @@ export function createTown(scene,{quality='medium',gifts={}}={}){
       registeredStations:simulation.activityDirector?.stations.length??0,
       storyVignettes:streetLife.vignetteCount,
       playableScenes:2,
+      occludableRoofMeshes:cameraOcclusion.candidateCount,
       playableObjects:playableMarket.adventure.targets().length,
       marketOpen:streetLife.sample(420).marketOpen,
       activeCitizens:simulation.actors.filter(actor=>actor.visible).length,
@@ -348,12 +350,15 @@ export function createTown(scene,{quality='medium',gifts={}}={}){
     playableMarket.update(realDt);
     moonring.update(realDt);
   }
+  const cameraOcclusion=createRoofOcclusion([
+    ...buildingModels.values(),downtownDistrict.root,entertainmentDistrict.root
+  ]);
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
     cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
-    districtActions,storybookLighting,atmosphere,streetLife,playableMarket,moonring,
+    districtActions,storybookLighting,atmosphere,streetLife,playableMarket,moonring,cameraOcclusion,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation,visualDiagnostics};
 }
