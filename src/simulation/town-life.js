@@ -47,7 +47,8 @@ export const ACTIVITIES=Object.freeze(['resting','walking','working','shopping',
 
 /** Time-of-day is expressed in existing Clover Hollow 22-minute day seconds. */
 export function getScheduleActivity(daySeconds,ordinal=0){
-  const time=((daySeconds+ordinal%4*13)%DAY_LENGTH+DAY_LENGTH)%DAY_LENGTH;
+  const offsets=[0,51,-34,26,-44,39,65,-21,56,-62];
+  const time=((daySeconds+offsets[ordinal%offsets.length])%DAY_LENGTH+DAY_LENGTH)%DAY_LENGTH;
   if(time<170||time>=1190)return 'resting';
   if(time<225)return 'delivery';
   if(time<300)return 'walking';
@@ -57,6 +58,12 @@ export function getScheduleActivity(daySeconds,ordinal=0){
   if(time<1060)return 'attending_event';
   return 'returning_home';
 }
+// Pairings create recognizable social rituals around shared local places.
+const NEIGHBOR_MEETINGS=Object.freeze([
+  ['mayor','bruno','square'],['mabel','hazel','market'],
+  ['pip','clover','bakery'],['dot','biscuit','marketEast'],
+  ['fennel','reed','pond']
+]);
 const CLOSE=.18;
 function samePosition(a,b){return !!a&&Math.hypot(a[0]-b[0],a[1]-b[1])<.01;}
 
@@ -70,7 +77,15 @@ function residentDestination(person,index,daySeconds,activity){
     const stores=[PLACES.bakery,PLACES.general,PLACES.furniture,PLACES.oldTown,PLACES.merchantArcade,PLACES.theatre];
     return stores[(day+index)%stores.length];
   }
-  if(activity==='socializing')return PLAZA_SOCIAL_SPOTS[(index+day)%PLAZA_SOCIAL_SPOTS.length];
+  if(activity==='socializing'){
+    const meeting=NEIGHBOR_MEETINGS.find(pair=>pair.includes(person.id));
+    if(meeting){
+      const [first,second,place]=meeting;
+      const [x,z]=PLACES[place];
+      return [x+(person.id===first?-.72:.72),z];
+    }
+    return PLAZA_SOCIAL_SPOTS[(index+day)%PLAZA_SOCIAL_SPOTS.length];
+  }
   // Two different strolls a day: work commute, then familiar scenic destinations.
   return (daySeconds%DAY_LENGTH)<500?PLAZA_SOCIAL_SPOTS[index%PLAZA_SOCIAL_SPOTS.length]:person.outing;
 }
@@ -137,14 +152,28 @@ export function createNpcSimulation(graph,{visitorCount=5,activityAnchors=[]}={}
         if(!a.active){
           a.active=true;a.x=a.home[0];a.z=a.home[1];a.lastGoal=null;
         }
-        const stop=(Math.floor(dayTime/135)+i*3)%VISITOR_DESTINATIONS.length;
+        const stop=(Math.floor(dayTime/195)+i*3)%VISITOR_DESTINATIONS.length;
         goal=VISITOR_DESTINATIONS[stop];
         activity=dayTime>=900?'attending_event':stop%4===0?'shopping':stop%4===1?'socializing':stop%4===2?'waiting':'walking';
       }else{
         activity=getScheduleActivity(time,a.ordinal);
         goal=residentDestination(a,a.ordinal,time,activity);
       }
-      a.visible=true;a.intention=activity;
+      a.visible=true;
+      // Keep both actors present during a conversation: they cannot be
+      // redirected by the next frame's schedule or animate away mid-sentence.
+      const socialUntil=a._socialUntil??0;
+      const inConversation=Boolean(a.socialPartner&&socialUntil>time&&socialUntil-time<20);
+      if(inConversation){
+        const partner=actors.find(other=>other.id===a.socialPartner);
+        a.intention='socializing';a.activity='socializing';
+        a.moving=false;a.route=[];a.waypoint=0;a.lastGoal=null;
+        a.velocity={x:0,z:0};a.pose='talking';
+        a.lookTarget=partner?{x:partner.x,z:partner.z}:null;
+        continue;
+      }
+      if(a.socialPartner){a.socialPartner=null;a._socialUntil=0;}
+      a.intention=activity;
       if((activity==='working'||activity==='delivery')&&a.stationId&&a.station)goal=[a.station.x,a.station.z];
       setGoal(a,goal);
       let remaining=step*(a.visitor?1.55:1.7);
