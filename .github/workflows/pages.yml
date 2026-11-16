@@ -44,6 +44,7 @@ jobs:
           node --check src/art.js
           node --check src/town.js
           node --check src/atmosphere/storybook-atmosphere.js
+          node --check src/audio/town-soundscape.js
           node --check src/performance/graphics-quality.js
           node --check src/rendering/storybook-lighting.js
           node --check src/rendering/storybook-materials.js
