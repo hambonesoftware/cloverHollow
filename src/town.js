@@ -323,7 +323,7 @@ export function createTown(scene,{quality='medium',gifts={}}={}){
     };
   }
   const updateNpcSimulation=(dt,daySeconds)=>simulation.advance(dt,daySeconds);
-  function update(dt,t=0,daySeconds=0,story={}){
+  function update(dt,t=0,daySeconds=0,story={},realDt=dt){
     simulation.advance(dt,daySeconds);
     for(let i=0;i<simulation.actors.length;i++){
       const data=simulation.actors[i],view=actors[i],model=actorModels.get(data.id);
@@ -343,8 +343,10 @@ export function createTown(scene,{quality='medium',gifts={}}={}){
     const sky=storybookLighting.update(daySeconds);
     atmosphere.update(dt,sky.night);
     streetLife.update(dt,daySeconds,story);
-    playableMarket.update(dt);
-    moonring.update(dt);
+    // Interactive cinematic events use elapsed wall time, not the stricter
+    // 50 ms collision tick, so low-frame-rate iPhones do not slow time.
+    playableMarket.update(realDt);
+    moonring.update(realDt);
   }
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
