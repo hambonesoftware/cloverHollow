@@ -16,7 +16,7 @@ export const MARKET_STAGE=Object.freeze({
   secret:Object.freeze({x:49,z:17})
 });
 const sq=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
-const range=(v)=>Math.max(0,Math.min(.12,Number.isFinite(v)?v:0));
+const range=(v)=>Math.max(0,Math.min(.5,Number.isFinite(v)?v:0));
 const target=(id,point,range=2.6,label='',hint='')=>({id,x:point.x,z:point.z,range,label,hint});
 
 export function createMarketAdventure({gifts={}}={}){
