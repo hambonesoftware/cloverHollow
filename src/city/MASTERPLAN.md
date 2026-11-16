@@ -26,7 +26,10 @@ Import `DISTRICT_SITES`, `DISTRICTS`, `DISTRICT_PATHS`, `DISTRICT_PLACES`, `DIST
 }
 ```
 
-Coordinates are absolute world units. All entrances face +Z and sit 1.5 units outside their facade. Site objects and entrance arrays are frozen. Do not independently alter these positions in district renderer modules.
+Coordinates are absolute world units. Legacy entrances face +Z; the northern Old Market shopfront row now faces
+south across its market lane. Those `facing: 'south'` site entrances are placed
+1.5 units beyond the -Z facade. The revised pedestrian graph supports angled
+segments and tests collision clearance along each segment. Site objects and entrance arrays are frozen. Do not independently alter these positions in district renderer modules.
 
 ## Worker integration
 
