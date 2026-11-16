@@ -582,7 +582,8 @@ let dayClock=0;
 let promptClock=0;
 function animate() {
   requestAnimationFrame(animate);
-  const dt=Math.min(clock.getDelta(), .05);
+  const frameDt=Math.min(clock.getDelta(),.6);
+  const dt=Math.min(frameDt,.05);
   lastFrameDelta=dt;
   walkAnimation+=dt;
   let x=0,y=0;
@@ -604,7 +605,7 @@ function animate() {
     updateCharacterAnimation(town.player,dt,{
       velocity:motion.velocity,heading:motion.heading
     });
-    town.update?.(dt,walkAnimation,currentState.daySeconds,currentState.story);
+    town.update?.(dt,walkAnimation,currentState.daySeconds,currentState.story,frameDt);
     const tossEvent=town.moonring.rules.takeEvent();
     if(tossEvent){
       if(tossEvent.reward)game.awardKeepsake(tossEvent.reward);
