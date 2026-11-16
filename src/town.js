@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {createStorybookLighting} from './rendering/storybook-lighting.js';
+import {createStreetLife} from './environment/street-life.js';
 import {createStorybookAtmosphere} from './atmosphere/storybook-atmosphere.js';
 import { LOTS } from './rules.js';
 import { box, sphere, cylinder, flat, sign, makePerson, tree, flower, gardenBench, lampPost } from './art.js';
@@ -248,6 +249,7 @@ export function createTown(scene,{quality='medium'}={}){
   const allStations=[...(downtownDistrict.activityAnchors??[]),...legacyWorkStations];
   const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:allStations});
   const atmosphere=createStorybookAtmosphere(scene,{quality,walkable,locations:routePoints});
+  const streetLife=createStreetLife(scene,{quality});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
@@ -307,6 +309,8 @@ export function createTown(scene,{quality='medium'}={}){
       dressedCitizens:[...actorModels.values()].filter(model=>!!model.userData.outfit).length,
       professions:new Set(simulation.actors.map(actor=>actor.occupation).filter(Boolean)).size,
       registeredStations:simulation.activityDirector?.stations.length??0,
+      storyVignettes:streetLife.vignetteCount,
+      marketOpen:streetLife.sample(420).marketOpen,
       activeCitizens:simulation.actors.filter(actor=>actor.visible).length,
       lightingActive:!!storybookLighting.sun,
       districtBuildings:downtownDistrict.root.children.length
@@ -332,13 +336,14 @@ export function createTown(scene,{quality='medium'}={}){
     entertainmentDistrict.update(dt,daySeconds);
     const sky=storybookLighting.update(daySeconds);
     atmosphere.update(dt,sky.night);
+    streetLife.update(dt,daySeconds);
   }
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
     cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
-    districtActions,storybookLighting,atmosphere,
+    districtActions,storybookLighting,atmosphere,streetLife,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation,visualDiagnostics};
 }
