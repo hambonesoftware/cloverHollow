@@ -146,21 +146,21 @@ export function createStreetLife(scene,{quality='medium'}={}){
   let elapsed=0;
   function update(dt=0,seconds=0,story={}){
     elapsed+=Math.max(0,Math.min(.1,dt));
-    const story=sampleStreetStory(seconds);
-    tea.visible=story.marketOpen;
-    openSign.visible=story.marketOpen;
-    delivery.visible=story.morningDelivery||story.fallenParcels;
-    cart.rotation.z=story.fallenParcels?-.10:Math.sin(elapsed*1.2)*.018;
-    cart.position.y=story.fallenParcels?-.05:0;
-    parcels.forEach((p,i)=>{p.visible=!story.fallenParcels&&story.morningDelivery&&
-      (i<(story.time>425?2:4));});
-    fallen.forEach(p=>p.visible=story.fallenParcels);
-    tray.visible=story.bakeryRush;
+    const moment=sampleStreetStory(seconds);
+    tea.visible=moment.marketOpen;
+    openSign.visible=moment.marketOpen;
+    delivery.visible=moment.morningDelivery||moment.fallenParcels;
+    cart.rotation.z=moment.fallenParcels?-.10:Math.sin(elapsed*1.2)*.018;
+    cart.position.y=moment.fallenParcels?-.05:0;
+    parcels.forEach((p,i)=>{p.visible=!moment.fallenParcels&&moment.morningDelivery&&
+      (i<(moment.time>425?2:4));});
+    fallen.forEach(p=>p.visible=moment.fallenParcels);
+    tray.visible=moment.bakeryRush;
     friendlyTreat.visible=(story?.conversations?.Pip??0)>=3;
     welcome.visible=Boolean(story?.housewarming);
     smoke.forEach((p,i)=>{
       const phase=((elapsed*.23+i/smoke.length)%1+1)%1;
-      p.visible=story.bakeryRush;
+      p.visible=moment.bakeryRush;
       p.position.set(-24+Math.sin(elapsed*.6+i)*.25+phase*.18,
         6.5+phase*2.1,-20.5+Math.cos(elapsed*.4+i)*.24);
       p.scale.setScalar(.5+phase*.85);
@@ -170,9 +170,9 @@ export function createStreetLife(scene,{quality='medium'}={}){
         -.5+Math.cos(elapsed*.65+phase)*.7);
       left.scale.x=.8+Math.sin(elapsed*12+phase)*.35;
       right.scale.x=.8-Math.sin(elapsed*12+phase)*.35;
-      bug.visible=story.marketOpen;
+      bug.visible=moment.marketOpen;
     });
-    stage.visible=story.rehearsal;
+    stage.visible=moment.rehearsal;
     musicStand.rotation.z=Math.sin(elapsed*1.8)*.025;
     notes.forEach((note,i)=>{
       note.position.set((i-1)*.44,1.7+((elapsed*.36+i*.29)%1)*1.2,-.25);
