@@ -493,7 +493,7 @@ function animate() {
     updateCharacterAnimation(town.player,dt,{
       velocity:motion.velocity,heading:motion.heading
     });
-    town.update?.(dt,walkAnimation,currentState.daySeconds);
+    town.update?.(dt,walkAnimation,currentState.daySeconds,currentState.story);
     cameraRig.update(dt,playerPosition,{walkable:town.walkable});
     saveClock+=dt;
     if(saveClock>=.75){
