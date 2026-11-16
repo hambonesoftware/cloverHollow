@@ -132,8 +132,19 @@ export function createStreetLife(scene,{quality='medium'}={}){
     const note=orb(stage,.10,[0xf7c88f,0xc8d0eb,0xf1a6c1][i],.0,1.7,0);
     notes.push(note);
   }
+  // A small physical memory of the player's first housewarming. The
+  // existing save's story.housewarming flag controls this permanent bunting.
+  const welcome=new THREE.Group();welcome.position.set(-10,0,11);root.add(welcome);
+  for(const x of [-1.8,1.8])block(welcome,.12,2.25,.12,0x94725e,x,1.12,0);
+  block(welcome,3.9,.10,.12,0x9d8067,0,2.22,0);
+  for(let i=0;i<7;i++){
+    const flag=block(welcome,.36,.48,.07,[0xe7a5ac,0xefce8b,0xa0c3b5][i%3],
+      (i-3)*.52,1.87,0);
+    flag.rotation.z=(i%2?1:-1)*.12;
+  }
+  const friendlyTreat=orb(tray,.22,0xf2c3a4,0,1.43,0);
   let elapsed=0;
-  function update(dt=0,seconds=0){
+  function update(dt=0,seconds=0,story={}){
     elapsed+=Math.max(0,Math.min(.1,dt));
     const story=sampleStreetStory(seconds);
     tea.visible=story.marketOpen;
@@ -145,6 +156,8 @@ export function createStreetLife(scene,{quality='medium'}={}){
       (i<(story.time>425?2:4));});
     fallen.forEach(p=>p.visible=story.fallenParcels);
     tray.visible=story.bakeryRush;
+    friendlyTreat.visible=(story?.conversations?.Pip??0)>=3;
+    welcome.visible=Boolean(story?.housewarming);
     smoke.forEach((p,i)=>{
       const phase=((elapsed*.23+i/smoke.length)%1+1)%1;
       p.visible=story.bakeryRush;
@@ -166,7 +179,7 @@ export function createStreetLife(scene,{quality='medium'}={}){
       note.scale.setScalar(.5+(i%2)*.18);
     });
   }
-  update(0,420);
+  update(0,420,{});
   return {
     root,update,sample:sampleStreetStory,
     get vignetteCount(){return 5;},
