@@ -197,8 +197,27 @@ function leave() {
   ui.toast('Back into the fresh Clover Hollow air!');
 }
 
+function tossHudState() {
+  const state=town.moonring.inspect();
+  return {active:state.active,mode:state.mode,round:state.round,score:state.score,
+    aim:state.aim,target:state.target};
+}
 function interactWorld(targetId=null) {
   if(currentState.scene!=='town'||ui.blocksMovement)return false;
+  const x=playerPosition.x,z=playerPosition.z;
+  const ringPrompt=town.moonring.prompt(x,z);
+  if(targetId==='toss'||(ringPrompt?.action&&targetId===null)){
+    const action=town.moonring.interact(x,z);
+    if(action){
+      if(action==='start'){
+        const event=town.moonring.rules.takeEvent();
+        if(event)ui.toast(event.text);
+        cameraRig.focusOn(40,-105,2.7);
+      }
+      ui.setWorldGame(tossHudState(),true);
+      return true;
+    }
+  }
   const result=town.playableMarket.interact(playerPosition.x,playerPosition.z,
     targetId?{id:targetId}:{});
   if(!result)return false;
@@ -278,6 +297,20 @@ function interact() {
   }
 }
 
+function onWorldTossInput(action){
+  const gameState=town.moonring.inspect();
+  if(action==='exit'){
+    town.moonring.rules.cancel();ui.setWorldGame(null,true);
+    ui.toast('Thanks for playing! The festival booth will be here anytime.');return;
+  }
+  if(!gameState.active)return;
+  if(action==='left'||action==='right'){
+    town.moonring.rules.setAim(gameState.aim+(action==='left'?-.20:.20));
+    ui.setWorldGame(tossHudState(),true);
+    return;
+  }
+  if(action==='throw')interactWorld('toss');
+}
 function updateFestivalGame(){
   if(!activeFestivalGame)return;
   const def=ACTIVITY_DEFINITIONS[activeFestivalGame.kind];
@@ -290,6 +323,22 @@ function onDistrictAction(option){
   const action=option?.action;
   if(!action)return;
   if(action==='mayor.deed'&&currentState.deed===null){ui.showLots();return;}
+  if(action==='ring-toss'){
+    // The arcade and festival signs bring the player to the actual
+    // three-dimensional booth instead of a modal multiple-choice puzzle.
+    ui.dismiss();
+    if(town.walkable(40,-103)){
+      playerPosition={x:40,z:-103};
+      town.player.position.set(40,0,-103);
+      game.setTownPosition(40,-103);
+    }
+    town.moonring.rules.start();
+    const message=town.moonring.rules.takeEvent();
+    cameraRig.focusOn(40,-105,3);
+    ui.setWorldGame(tossHudState(),true);
+    if(message)ui.toast(message.text);
+    return;
+  }
   const result=describeDistrictAction(action);
   if(result.type==='shop'){ui.openShop();return;}
   if(result.type==='activity'){
@@ -321,6 +370,7 @@ function onActivityRestart(){
 
 ui = new AppUI(uiRoot,game,decorating,{
   interact,leave,onDistrictAction,onActivityChoice,onActivityCancel,onActivityRestart,
+  onWorldTossInput,
   onSoundToggle:enabled=>soundscape.toggle(enabled)
 });
 game.subscribe(updateScene);
@@ -333,6 +383,8 @@ if (fallbackRoom) ui.toast('Preview room active. The full dollhouse module will 
 if (new URLSearchParams(location.search).has('integration-test')) {
   window.__cloverTest = {
     state: () => game.state,
+    moonringState: () => town.moonring.inspect(),
+    setMoonringAim: value => town.moonring.rules.setAim(value),
     marketState: () => town.playableMarket.inspect(),
     marketPrompt: () => town.playableMarket.prompt(playerPosition.x,playerPosition.z),
     marketInteract: (id=null) => interactWorld(id),
@@ -396,7 +448,14 @@ function syncPreview(candidate) {
 // taps or UI interactions. A quick tap selects furniture; a drag rotates the view.
 const cameraPointers = new Map();
 let pinchDistance = null;
+let tossPointer=null;
 canvas.addEventListener('pointerdown', event => {
+  if(town.moonring.inspect().active){
+    tossPointer={id:event.pointerId,startX:event.clientX,
+      aimStart:town.moonring.inspect().aim};
+    try{canvas.setPointerCapture(event.pointerId);}catch{}
+    return;
+  }
   if (ui.blocksMovement || ui.isDecorating) {
     if (currentState.scene === 'home' && ui.isDecorating && !ui.blocksMovement) {
       const floor=floorFromPointer(canvasPoint(event));
@@ -411,6 +470,12 @@ canvas.addEventListener('pointerdown', event => {
   try {canvas.setPointerCapture(event.pointerId);}catch {}
 });
 canvas.addEventListener('pointermove', event => {
+  if(tossPointer&&tossPointer.id===event.pointerId){
+    const dx=(event.clientX-tossPointer.startX)/Math.max(80,Math.min(240,window.innerWidth*.32));
+    town.moonring.rules.setAim(tossPointer.aimStart+dx);
+    ui.setWorldGame(tossHudState(),true);
+    return;
+  }
   if (currentState.scene === 'home' && ui.isDecorating && !ui.blocksMovement) {
     const position=floorFromPointer(canvasPoint(event));
     if(position)decorating.preview(position.x,position.z);
@@ -436,6 +501,11 @@ canvas.addEventListener('wheel',event=>{
   cameraRig.zoom(Math.exp(event.deltaY*.001));
 },{passive:false});
 function releaseCameraPointer(event) {
+  if(tossPointer?.id===event.pointerId){
+    tossPointer=null;
+    if(event.type==='pointerup')interactWorld('toss');
+    return;
+  }
   const p=cameraPointers.get(event.pointerId);
   if(!p)return;
   const tap=!p.moved&&cameraPointers.size===1;
@@ -446,6 +516,10 @@ function releaseCameraPointer(event) {
   ray.setFromCamera(canvasPoint(event),camera);
   if(currentState.scene==='town'){
     const picked=town.playableMarket.pick(ray);
+    if(!picked&&town.moonring.pick(ray)){
+      if(!interactWorld('toss'))ui.toast('Come closer to the striped Moonring booth.');
+      return;
+    }
     if(picked){
       if(!interactWorld(picked))ui.toast('Walk a little closer, then tap the object or press Talk.');
     }
@@ -472,6 +546,12 @@ decorating.subscribe(value => {
 const held=new Set();
 window.addEventListener('keydown', event => {
   if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(event.code)) event.preventDefault();
+  if(town.moonring.inspect().active){
+    if(event.code==='Escape'){onWorldTossInput('exit');return;}
+    if(event.code==='ArrowLeft'||event.code==='KeyA'){onWorldTossInput('left');return;}
+    if(event.code==='ArrowRight'||event.code==='KeyD'){onWorldTossInput('right');return;}
+    if(event.code==='Space'||event.code==='KeyE'){onWorldTossInput('throw');return;}
+  }
   if (event.repeat && ['KeyE','KeyI','Escape','Space','KeyB'].includes(event.code)) return;
   held.add(event.code);
   if (event.code === 'KeyE' || event.code === 'Space') interact();
@@ -510,7 +590,7 @@ function animate() {
   if(held.has('KeyD')||held.has('ArrowRight'))x++;
   if(held.has('KeyW')||held.has('ArrowUp'))y--;
   if(held.has('KeyS')||held.has('ArrowDown'))y++;
-  if(!ui.blocksMovement&&!ui.isDecorating){
+  if(!ui.blocksMovement&&!ui.isDecorating&&!town.moonring.inspect().active){
     x+=ui.axes.x;
     y+=ui.axes.y;
   }else{
@@ -525,11 +605,20 @@ function animate() {
       velocity:motion.velocity,heading:motion.heading
     });
     town.update?.(dt,walkAnimation,currentState.daySeconds,currentState.story);
+    const tossEvent=town.moonring.rules.takeEvent();
+    if(tossEvent){
+      if(tossEvent.reward)game.awardKeepsake(tossEvent.reward);
+      ui.toast(tossEvent.text);
+      if(tossEvent.kind==='finish')ui.setWorldGame(null,true);
+    }
     cameraRig.update(dt,playerPosition,{walkable:town.walkable});
     promptClock+=dt;
     if(promptClock>.12){
       promptClock=0;
-      ui.setWorldPrompt(town.playableMarket.prompt(playerPosition.x,playerPosition.z));
+      const inToss=town.moonring.inspect().active;
+      ui.setWorldGame(inToss?tossHudState():null);
+      ui.setWorldPrompt(inToss?null:town.moonring.prompt(playerPosition.x,playerPosition.z)
+        ??town.playableMarket.prompt(playerPosition.x,playerPosition.z));
     }
     saveClock+=dt;
     if(saveClock>=.75){
@@ -537,7 +626,7 @@ function animate() {
       game.setTownPosition(playerPosition.x,playerPosition.z);
     }
   }else{
-    ui.setWorldPrompt(null);
+    ui.setWorldPrompt(null);ui.setWorldGame(null);
     const motion=homeMovement.step(input,dt,{
       x:indoorPlayer.position.x,z:indoorPlayer.position.z
     },(px,pz)=>isWalkable(px,pz,currentState.placements));
