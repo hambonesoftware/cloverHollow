@@ -78,8 +78,8 @@ export function createTownSoundscape(root=typeof window==='undefined'?null:windo
     if(!enabled||!context)return;
     const x=position?.x??0,z=position?.z??0,mix=sampleTownSound(x,z,daySeconds);
     const t=context.currentTime;
-    marketGain.gain.setTargetAtTime(outdoors?.012*mix.market:0,t,.4);
-    waterGain.gain.setTargetAtTime(outdoors?.018*mix.brook:0,t,.4);
+    marketGain.gain.setTargetAtTime(outdoors ? .012*mix.market : 0,t,.4);
+    waterGain.gain.setTargetAtTime(outdoors ? .018*mix.brook : 0,t,.4);
     if(!outdoors||context.state!=='running')return;
     elapsed+=Math.max(0,Math.min(.1,dt));
     // Occasional quiet birdsong and evening insects. No runaway timers.
