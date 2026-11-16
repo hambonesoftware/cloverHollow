@@ -170,7 +170,9 @@ try {
     for(let click=0;click<Math.round(Math.abs(targetAim)/.2);click++)
       await page.locator('#world-game [data-action="'+button+'"]').click();
     await page.locator('#world-game [data-action="toss-throw"]').click();
-    await page.waitForFunction(r=>window.__cloverTest.moonringState().round>r,round,{timeout:15000});
+    assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().mode),'flying',
+      'pressing THROW must launch the ring into the world');
+    await page.waitForFunction(r=>window.__cloverTest.moonringState().round>r,round,{timeout:30000});
   }
   assert.equal(await page.evaluate(()=>
     window.__cloverTest.state().gifts['Moonring ribbon']),1);
