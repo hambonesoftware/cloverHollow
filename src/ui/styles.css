@@ -107,3 +107,6 @@
   .window{top:38px;max-height:calc(100dvh - 45px)}
   .decor-actions{bottom:calc(max(6px,env(safe-area-inset-bottom)) + 70px)}
 }
+
+/* Explicit opt-in audio, always reachable without covering the walk controls. */
+.toolbar button[data-action="sound"]{font-size:11px;padding:7px 10px;opacity:.90}
