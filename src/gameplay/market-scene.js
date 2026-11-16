@@ -149,7 +149,7 @@ export function createPlayableMarket(scene,{player,quality='medium',gifts={}}={}
   let elapsed=0;
   function update(dt=0){
     const step=Math.max(0,Math.min(dt,.1));
-    elapsed+=step;adventure.tick(step);
+    elapsed+=step;adventure.tick(dt);
     const state=adventure.state();
     const active=state.phase==='started';
     const nearby=player?Math.hypot(player.position.x-cp.x,player.position.z-cp.z)<13:false;
