@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {makePerson,updateCharacterAnimation} from '../art.js';
 
 export const MOONRING_REWARD='Moonring ribbon';
 export const MOONRING_BOOTH=Object.freeze({x:40,z:-105});
@@ -89,7 +90,7 @@ export function createMoonringBooth(scene,{quality='medium'}={}){
   const rules=createMoonringRules();
   const root=new THREE.Group();root.name='Playable Moonring Toss Booth';
   root.position.set(MOONRING_BOOTH.x,0,MOONRING_BOOTH.z);scene.add(root);
-  const geometries=[],materials=[];
+  const geometries=[],materials=[],textures=[];
   function mesh(geo,color,{emissive=0}={}){
     const material=new THREE.MeshStandardMaterial({
       color,metalness:.02,roughness:.68,emissive,emissiveIntensity:.45
@@ -114,6 +115,28 @@ export function createMoonringBooth(scene,{quality='medium'}={}){
     const flag=box(.52,.12,1.85,i%2?0xf9e1b9:0xd89ab0,-2.07+i*.69,3.23,-1.10);
     flag.rotation.x=-.11;
   }
+  // A recognizable pavilion sign, readable even through the default camera.
+  if(typeof document!=='undefined'){
+    const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;
+    const context=canvas.getContext('2d');
+    if(context){
+      context.fillStyle='#ffebc1';context.beginPath();
+      context.roundRect(4,6,504,116,27);context.fill();
+      context.strokeStyle='#a7796c';context.lineWidth=9;context.stroke();
+      context.textAlign='center';context.textBaseline='middle';
+      context.font='bold 47px Trebuchet MS, sans-serif';
+      context.fillStyle='#6d5773';context.fillText('MOONRING TOSS',256,64,472);
+      const texture=new THREE.CanvasTexture(canvas);
+      texture.colorSpace=THREE.SRGBColorSpace;textures.push(texture);
+      const banner=new THREE.Sprite(new THREE.SpriteMaterial({
+        map:texture,transparent:true,depthWrite:false
+      }));
+      banner.position.set(0,4.07,-1.1);banner.scale.set(4.5,1.13,1);root.add(banner);
+    }
+  }
+  const host=makePerson('mouse',{shirt:0x9c7cb0,trousers:0x8e7765});
+  host.name='Moonring festival host';
+  host.position.set(-3.05,0,1.04);host.rotation.y=.45;root.add(host);
   const pegs=[];
   for(let i=0;i<3;i++){
     const x=MOONRING_OFFSETS[i];
@@ -145,6 +168,12 @@ export function createMoonringBooth(scene,{quality='medium'}={}){
     rules.tick(dt);
     const state=rules.state();
     root.visible=true;
+    updateCharacterAnimation(host,Math.max(0,Math.min(.08,dt)),{
+      velocity:{x:0,z:0},talking:state.active
+    });
+    const arms=host.userData?.rig?.arms;
+    if(arms?.[0]&&state.mode==='finished')
+      arms[0].rotation.z+=Math.sin(elapsed*6)*.21;
     pegs.forEach(({light},i)=>{
       const chosen=i===state.target;
       light.visible=chosen||state.mode==='idle';
@@ -182,6 +211,7 @@ export function createMoonringBooth(scene,{quality='medium'}={}){
     prompt:(x,z)=>rules.prompt(x,z),
     interact:(x,z)=>rules.interact(x,z),
     inspect:()=>rules.state(),
-    dispose(){scene.remove(root);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());}
+    dispose(){scene.remove(root);geometries.forEach(g=>g.dispose());
+      materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());}
   };
 }
