@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: clover-hollow-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -27,6 +31,7 @@ jobs:
           node --check src/input/movement.test.js
           node --check src/camera/camera-math.js
           node --check src/camera/camera-rig.js
+          node --check src/camera/roof-occlusion.js
           node --check src/characters/chibi.js
           node --check src/characters/animation.js
           node --check src/visual/gfx.js
@@ -35,6 +40,9 @@ jobs:
           node --check src/architecture/approved-cottage.js
           node --check src/environment/landscape.js
           node --check src/environment/street-life.js
+          node --check src/gameplay/market-adventure.js
+          node --check src/gameplay/market-scene.js
+          node --check src/gameplay/moonring-toss.js
           node --check src/interiors/fairy-details.js
           node --check src/ui/app-ui.js
           node --check src/viewmodels/game-view-model.js
@@ -45,6 +53,7 @@ jobs:
           node --check src/town.js
           node --check src/atmosphere/storybook-atmosphere.js
           node --check src/audio/town-soundscape.js
+          node --check src/audio/clover-theme.js
           node --check src/performance/graphics-quality.js
           node --check src/rendering/storybook-lighting.js
           node --check src/rendering/storybook-materials.js

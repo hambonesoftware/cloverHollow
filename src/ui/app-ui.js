@@ -21,11 +21,17 @@ export class AppUI {
     this.activityView = null;
     this.toastTimer = null;
     this.soundEnabled = false;
+    this.worldPrompt = null;
+    this.worldPromptSignature = '';
+    this.worldGame = null;
+    this.worldGameSignature = '';
     root.innerHTML = `
       <div class="hud"><div class="brand" id="brand"></div><div class="status" id="status"></div></div>
       <nav class="toolbar" id="toolbar" aria-label="Game actions"></nav>
       <div id="panel-host"></div><div id="modal-host"></div>
       <div id="decor-host"></div><div class="hint" id="hint"></div>
+      <div class="world-prompt" id="world-prompt" role="status" aria-live="off" hidden></div>
+      <div class="world-game" id="world-game" aria-label="Playable 3D carnival game" hidden></div>
       <div class="move-zone" id="move-zone" aria-label="Touch area for movement">
         <div class="joystick" id="joystick" aria-label="Floating movement joystick">
           <div class="joystick-knob" id="joystick-knob"></div>
@@ -94,6 +100,9 @@ export class AppUI {
     window.addEventListener('blur',reset);
   }
   _act(action) {
+    if (['toss-left','toss-right','toss-throw','toss-exit'].includes(action)) {
+      this.actions.onWorldTossInput?.(action.slice(5));return;
+    }
     if (action === 'sound') {
       this.soundEnabled=Boolean(this.actions.onSoundToggle?.(!this.soundEnabled));
       this.render();return;
@@ -327,12 +336,56 @@ export class AppUI {
     } else if (this.modal === 'help') {
       speaker = 'Field Guide';
       title = 'A cozy guide to Clover Hollow';
-      body = 'WASD or arrow keys: walk. E or Space: interact. I: satchel. Escape: close menus. Drag the thumbstick and tap Talk on touch screens. Visit the Mayor for a deed, then explore Old Town for the Post Office, library, Town Hall and shops. Head south to Lantern Quarter for games, music, and theater. Decorate your own two-wall cottage from the home menu.';
+      body = 'WASD or arrow keys: walk. E or Space: interact. I: satchel. Escape: close menus. Touch: drag the thumbstick, and tap TALK or a glowing 3D object to interact. A courier needs help with a runaway apple cart near Clover Square! Catch three rolling apples, carry them to her basket, and discover secrets by exploring the creek. Visit the Mayor for a home; head south for shops, theatre, games and music. Everything you discover lives inside the 3D world.';
       footer = button('Got it', 'dismiss', true);
     }
     return `<div class="backdrop"><article class="dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
       <div class="eyebrow">${escapeHtml(speaker)}</div><h2>${escapeHtml(title)}</h2>
       <p>${escapeHtml(body)}</p>${extra}<footer>${footer}</footer></article></div>`;
+  }
+  setWorldGame(game,force=false) {
+    const key=game?JSON.stringify(game):'';
+    if(!force&&key===this.worldGameSignature)return;
+    this.worldGame=game;this.worldGameSignature=key;
+    const el=this.root.querySelector('#world-game');
+    if(!el)return;
+    el.hidden=!game?.active;
+    this.root.classList.toggle('playing-world-game',Boolean(game?.active));
+    if(!game?.active){el.textContent='';return;}
+    const targetName=['left','center','right'][game.target]||'center';
+    el.innerHTML='<strong>✦ MOONRING TOSS ✦</strong>'+
+      '<span>Throw '+(game.round+1)+' / 5 · Landed '+game.score+
+      ' · Glowing '+escapeHtml(targetName)+' peg</span>'+
+      '<div class="world-game-controls">'+
+      '<button data-action="toss-left" aria-label="Aim left">◀ Aim</button>'+
+      '<button data-action="toss-throw" '+(game.mode==='flying'?'disabled':'')+'>THROW ✦</button>'+
+      '<button data-action="toss-right" aria-label="Aim right">Aim ▶</button>'+
+      '<button data-action="toss-exit" aria-label="Leave Moonring Toss">✕</button>'+
+      '</div><small>Drag on the world to aim, release to throw. Arrows + Space work too.</small>';
+  }
+  setWorldPrompt(prompt,force=false) {
+    const key=prompt?JSON.stringify(prompt):'';
+    if(!force&&key===this.worldPromptSignature)return;
+    this.worldPrompt=prompt;
+    this.worldPromptSignature=key;
+    const el=this.root.querySelector('#world-prompt');
+    if(el) {
+      el.hidden=!prompt||this.game.state.scene!=='town';
+      if(prompt)el.innerHTML=
+        '<strong>✦ '+escapeHtml(prompt.title)+'</strong>'+
+        '<span>'+escapeHtml(prompt.subtitle||'')+'</span>'+
+        (prompt.action?'<small>Press E / Space · Tap the hand button</small>':'');
+      else el.textContent='';
+    }
+    const touch=this.root.querySelector('.interact-touch');
+    if(touch&&this.game.state.scene==='town') {
+      const label=prompt?.action?
+        (prompt.target==='basket'?'PLACE':prompt.target?.startsWith('apple-')?'CATCH':
+        prompt.target==='secret'?'LOOK':prompt.target==='cart'?'HELP':
+        prompt.target==='toss'?'THROW':'USE'):'TALK';
+      touch.innerHTML=escapeHtml(label)+'<span aria-hidden="true">✦</span>';
+      touch.setAttribute('aria-label',prompt?.action?prompt.title:'Interact');
+    }
   }
   render() {
     const state = this.game.state;
@@ -356,6 +409,8 @@ export class AppUI {
     touchAction.innerHTML=home?'LEAVE<span aria-hidden="true">⌂</span>':'TALK<span aria-hidden="true">✦</span>';
     this.root.querySelector('#panel-host').innerHTML = this._panel(state, decor);
     this.root.querySelector('#modal-host').innerHTML = this._dialog(state);
+    this.setWorldPrompt(home?null:this.worldPrompt,true);
+    this.setWorldGame(home?null:this.worldGame,true);
     this.root.querySelector('#decor-host').innerHTML = home && decor.mode
       ? `<div class="decor-actions">
         <button data-action="rotate">↻ Rotate</button>

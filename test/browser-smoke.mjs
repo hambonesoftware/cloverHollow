@@ -160,15 +160,23 @@ try {
   assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(40,-83.5)),true);
   await page.locator('#toolbar [data-action="interact"]').click();
   await page.locator('#modal-host [data-action="district-item:0"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().active),true,
+    'the arcade must open a playable Three.js booth instead of a modal quiz');
   for(let round=0;round<5;round++){
-    const prompt=await page.evaluate(()=>window.__cloverTest.festivalPrompt());
-    assert.ok(prompt,'arcade ring toss must offer five rounds');
-    const selected=Math.round(prompt.target*4);
-    await page.locator('#modal-host [data-action="activity-choice:'+selected+'"]').click();
+    const state=await page.evaluate(()=>window.__cloverTest.moonringState());
+    assert.equal(state.mode,'aiming','ring must be aimed in the real 3D world');
+    const targetAim=[-.8,0,.8][state.target];
+    const button=targetAim<0?'toss-left':'toss-right';
+    for(let click=0;click<Math.round(Math.abs(targetAim)/.2);click++)
+      await page.locator('#world-game [data-action="'+button+'"]').click();
+    await page.locator('#world-game [data-action="toss-throw"]').click();
+    assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().mode),'flying',
+      'pressing THROW must launch the ring into the world');
+    await page.waitForFunction(r=>window.__cloverTest.moonringState().round>r,round,{timeout:30000});
   }
   assert.equal(await page.evaluate(()=>
     window.__cloverTest.state().gifts['Moonring ribbon']),1);
-  await page.locator('#modal-host [data-action="dismiss"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().mode),'finished');
   await page.screenshot({path:resolve(root,'test-results/lantern-quarter-desktop.png')}).catch(()=>{});
 
   // Public festival and garden are genuine walk-through destinations. They
@@ -179,8 +187,9 @@ try {
   await page.locator('#toolbar [data-action="interact"]').click();
   assert.match(await page.locator('#modal-host').innerText(),/Lantern Festival Green/);
   await page.locator('#modal-host [data-action="district-item:0"]').click();
-  assert.match(await page.locator('#modal-host').innerText(),/Moonring Toss/);
-  await page.locator('#modal-host [data-action="activity-cancel"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().mode),'aiming');
+  await page.locator('#world-game [data-action="toss-exit"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().mode),'idle');
 
   assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(20,-131)),true);
   await page.locator('#toolbar [data-action="interact"]').click();
@@ -189,8 +198,34 @@ try {
   assert.match(await page.locator('#modal-host').innerText(),/Fireflies drift/);
   await page.locator('#modal-host [data-action="dismiss"]').click();
 
+    // Physical town adventure: start the cart, catch actual animated apples,
+  // carry them back one by one, and verify lasting changes to the saved world.
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(12,17)),true);
+  await page.locator('#toolbar [data-action="interact"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.marketState().phase),'started');
+  await page.waitForFunction(()=>window.__cloverTest.marketState().elapsed>=.85,{timeout:15000});
+  for(const [x,z] of [[16,18],[14,23],[10,26]]){
+    assert.equal(await page.evaluate(([px,pz])=>window.__cloverTest.townPosition(px,pz),[x,z]),true);
+    await page.locator('#toolbar [data-action="interact"]').click();
+    assert.ok(Number.isInteger(await page.evaluate(()=>window.__cloverTest.marketState().carrying)),
+      'the three-dimensional apple must be carried by the player');
+    assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(6,17)),true);
+    await page.locator('#toolbar [data-action="interact"]').click();
+    assert.equal(await page.evaluate(()=>window.__cloverTest.marketState().carrying),null);
+  }
+  assert.equal(await page.evaluate(()=>window.__cloverTest.marketState().phase),'completed');
+  assert.equal(await page.evaluate(()=>window.__cloverTest.state().gifts['Apple Cart Rescue Ribbon']),1);
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(49,17)),true);
+  await page.locator('#toolbar [data-action="interact"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.state().gifts['The Creekside Four-Leaf Clover']),1);
+  await page.screenshot({path:resolve(root,'test-results/market-game-desktop.png')});
+
   await page.reload({waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>Boolean(window.__cloverTest));
+  assert.equal(await page.evaluate(()=>window.__cloverTest.marketState().phase),'completed',
+    'a completed rescue survives reloads without changing the save schema');
+  assert.equal(await page.evaluate(()=>window.__cloverTest.marketState().found),true,
+    'the creek discovery must not reappear after being collected');
   assert.equal(await page.evaluate(()=>
     window.__cloverTest.state().gifts['Mabel’s Friendly Letter']),1);
   assert.equal(await page.evaluate(()=>
@@ -229,6 +264,8 @@ try {
   await mobile.locator('[data-action="welcome"]').click();
   await mobile.locator('[data-action="lot:0"]').click();
   await mobile.locator('#modal-host [data-action="dismiss"]').click();
+  assert.match((await mobile.evaluate(()=>window.__cloverTest.marketPrompt()))?.title??'',/delivery/i,
+    'the nearby adventure should be discoverable without a quest screen');
   const zone=mobile.locator('#move-zone');
   assert.equal(await zone.isVisible(),true,'portrait touch movement zone must be visible');
   const rect=await zone.boundingBox();
@@ -250,6 +287,13 @@ try {
   assert.ok(Math.hypot(afterTouch.x-beforeTouch.x,afterTouch.z-beforeTouch.z)>.25,
     'touch joystick should move the player in the actual Three.js town');
   await mkdir(resolve(root,'test-results'),{recursive:true});
+  assert.equal(await mobile.evaluate(()=>window.__cloverTest.townPosition(12,17)),true);
+  await mobile.waitForTimeout(250);
+  assert.equal(await mobile.locator('#world-prompt').isVisible(),true,
+    'mobile gameplay must expose an in-world proximity prompt');
+  await mobile.locator('.interact-touch').click();
+  assert.equal(await mobile.evaluate(()=>window.__cloverTest.marketState().phase),'started');
+  await mobile.screenshot({path:resolve(root,'test-results/market-game-phone.png')});
   const phoneSite=await mobile.evaluate(()=>window.__cloverTest.townPosition(-39,-94));
   assert.equal(phoneSite,true,'phone should navigate to the Old Town pedestrian lane');
   await mobile.waitForTimeout(350);

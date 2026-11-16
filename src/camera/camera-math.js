@@ -1,6 +1,6 @@
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 // Lower, closer framing lets the player read faces, shop windows and carts.
-export const OUTDOOR_CAMERA=Object.freeze({yaw:.635,pitch:.49,distance:24.5,zoom:1});
+export const OUTDOOR_CAMERA=Object.freeze({yaw:.635,pitch:.47,distance:17.2,zoom:1});
 export function storybookStreetFraming(x,z){
   const market=Math.max(0,1-Math.hypot(x+32,z+88)/55);
   const square=Math.max(0,1-Math.hypot(x,z-4)/37);
@@ -9,8 +9,10 @@ export function storybookStreetFraming(x,z){
 export const INDOOR_CAMERA=Object.freeze({yaw:.71,pitch:.62,distance:18.5,zoom:1});
 export function fitDistance(base,aspect,mode='town') {
   const a=clamp(Number.isFinite(aspect)?aspect:1,.35,3);
-  const reference=mode==='home'?.90:.70;
-  const curve=mode==='home'?.60:.50;
+  // Portrait gameplay must not pull the camera so far away that our
+  // 2-unit-tall characters become miniature dots on an iPhone.
+  const reference=mode==='home'?.90:.62;
+  const curve=mode==='home'?.60:.34;
   return base*Math.max(1,Math.pow(reference/a,curve));
 }
 export function constrainCamera(yaw,pitch,zoom,mode='town') {

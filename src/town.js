@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import {createStorybookLighting} from './rendering/storybook-lighting.js';
 import {createStreetLife} from './environment/street-life.js';
+import {createPlayableMarket} from './gameplay/market-scene.js';
+import {createMoonringBooth} from './gameplay/moonring-toss.js';
+import {createRoofOcclusion} from './camera/roof-occlusion.js';
 import {createStorybookAtmosphere} from './atmosphere/storybook-atmosphere.js';
 import { LOTS } from './rules.js';
 import { box, sphere, cylinder, flat, sign, makePerson, tree, flower, gardenBench, lampPost } from './art.js';
@@ -36,7 +39,7 @@ const asPoint=([x,z])=>({x,z});
  *   pedestrianGraph -> reusable navigation graph (read-only by convention)
  * The optional deed to getPlayerLot overrides the value passed to useLot.
  */
-export function createTown(scene,{quality='medium'}={}){
+export function createTown(scene,{quality='medium',gifts={}}={}){
   scene.background=new THREE.Color(0xc9e3ea);
   scene.fog=new THREE.Fog(0xc9e3ea,105,240);
   const storybookLighting=createStorybookLighting(scene,{quality});
@@ -250,6 +253,8 @@ export function createTown(scene,{quality='medium'}={}){
   const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:allStations});
   const atmosphere=createStorybookAtmosphere(scene,{quality,walkable,locations:routePoints});
   const streetLife=createStreetLife(scene,{quality});
+  const playableMarket=createPlayableMarket(scene,{player,quality,gifts});
+  const moonring=createMoonringBooth(scene,{quality});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
@@ -310,6 +315,9 @@ export function createTown(scene,{quality='medium'}={}){
       professions:new Set(simulation.actors.map(actor=>actor.occupation).filter(Boolean)).size,
       registeredStations:simulation.activityDirector?.stations.length??0,
       storyVignettes:streetLife.vignetteCount,
+      playableScenes:2,
+      occludableRoofMeshes:cameraOcclusion.candidateCount,
+      playableObjects:playableMarket.adventure.targets().length,
       marketOpen:streetLife.sample(420).marketOpen,
       activeCitizens:simulation.actors.filter(actor=>actor.visible).length,
       lightingActive:!!storybookLighting.sun,
@@ -317,7 +325,7 @@ export function createTown(scene,{quality='medium'}={}){
     };
   }
   const updateNpcSimulation=(dt,daySeconds)=>simulation.advance(dt,daySeconds);
-  function update(dt,t=0,daySeconds=0,story={}){
+  function update(dt,t=0,daySeconds=0,story={},realDt=dt){
     simulation.advance(dt,daySeconds);
     for(let i=0;i<simulation.actors.length;i++){
       const data=simulation.actors[i],view=actors[i],model=actorModels.get(data.id);
@@ -337,13 +345,20 @@ export function createTown(scene,{quality='medium'}={}){
     const sky=storybookLighting.update(daySeconds);
     atmosphere.update(dt,sky.night);
     streetLife.update(dt,daySeconds,story);
+    // Interactive cinematic events use elapsed wall time, not the stricter
+    // 50 ms collision tick, so low-frame-rate iPhones do not slow time.
+    playableMarket.update(realDt);
+    moonring.update(realDt);
   }
+  const cameraOcclusion=createRoofOcclusion([
+    ...buildingModels.values(),downtownDistrict.root,entertainmentDistrict.root
+  ]);
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
     cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
-    districtActions,storybookLighting,atmosphere,streetLife,
+    districtActions,storybookLighting,atmosphere,streetLife,playableMarket,moonring,cameraOcclusion,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation,visualDiagnostics};
 }

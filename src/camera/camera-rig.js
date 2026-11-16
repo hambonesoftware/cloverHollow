@@ -15,10 +15,11 @@ export function createCameraRig(camera){
   const desiredLook=new THREE.Vector3();
   const desiredPos=new THREE.Vector3();
   let mode='town',ready=false;
+  let focus=null;
   function profile(){return views[mode];}
   function setMode(value,{snap=true}={}){
     mode=value==='home'?'home':'town';
-    if(snap)ready=false;
+    if(snap){ready=false;focus=null;}
   }
   function orbit(dx,dy){
     const p=profile();
@@ -29,13 +30,28 @@ export function createCameraRig(camera){
     const p=profile();
     p.zoom=constrainCamera(p.yaw,p.pitch,p.zoom*factor,mode).zoom;
   }
+  // Briefly favor an action or character after the player interacts.
+  // The player remains near the center and retains full orbit control.
+  function focusOn(x,z,duration=1.7){
+    if(mode!=='town'||!Number.isFinite(x)||!Number.isFinite(z))return;
+    focus={x,z,time:Math.max(0,Math.min(duration,4)),duration:Math.max(.01,duration)};
+  }
   function update(dt,target,{walkable=null}={}){
     const p=profile();
     // Intimate market framing is spatial, smooth and still respects user zoom.
     const framing=mode==='town'?storybookStreetFraming(target.x,target.z):1;
     const dist=fitDistance(p.distance,camera.aspect,mode)*p.zoom*framing;
-    const originY=mode==='home'?1.40:1.25;
-    desiredLook.set(mode==='home'?0:target.x,originY,mode==='home'?0:target.z);
+    const originY=mode==='home'?1.40:1.50;
+    const lead=mode==='town'?.9:0;
+    const focusWeight=focus&&mode==='town'?Math.min(.24,focus.time/focus.duration*.24):0;
+    const centerX=mode==='home'?0:target.x-Math.sin(p.yaw)*lead;
+    const centerZ=mode==='home'?0:target.z-Math.cos(p.yaw)*lead;
+    desiredLook.set(centerX+(focus?focus.x-target.x:0)*focusWeight,originY,
+      centerZ+(focus?focus.z-target.z:0)*focusWeight);
+    if(focus){
+      focus.time-=Math.max(0,Math.min(dt,.08));
+      if(focus.time<=0)focus=null;
+    }
     const offset=cameraOffset(p.yaw,p.pitch,dist);
     desiredPos.set(desiredLook.x+offset.x,desiredLook.y+offset.y,desiredLook.z+offset.z);
     // Probe the horizontal camera ray to reduce harsh building occlusion.
@@ -66,7 +82,7 @@ export function createCameraRig(camera){
     camera.lookAt(currentLook);
   }
   return {
-    setMode,orbit,zoom,update,
+    setMode,orbit,zoom,focusOn,update,
     get yaw(){return profile().yaw;},
     get mode(){return mode;},
     get state(){return{...profile()};},

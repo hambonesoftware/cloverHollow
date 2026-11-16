@@ -4,16 +4,35 @@
 
 **Game URL (when Pages is enabled):** https://hambonesoftware.github.io/cloverHollow/
 
-## GitHub Pages — one-time setup required
+## Play online
 
-All three development PRs are merged. The complete production game passes Node tests and a Chromium WebGL playthrough. However, the first deployment failed because **GitHub Pages has not been enabled for this repository**.
+**Live game:** https://hambonesoftware.github.io/cloverHollow/
 
-1. Open [Clover Hollow Pages settings](https://github.com/hambonesoftware/cloverHollow/settings/pages).
-2. Under **Build and deployment → Source**, choose **GitHub Actions**.
-3. Open [Clover Hollow Actions](https://github.com/hambonesoftware/cloverHollow/actions/workflows/pages.yml) and rerun the failed workflow, or manually run it on main.
-4. Verify the successful deployment and open the URL above.
+GitHub Actions checks source syntax, Node tests and a real desktop/iPhone
+WebGL smoke test before publishing to GitHub Pages. See
+[the deployment workflow](https://github.com/hambonesoftware/cloverHollow/actions/workflows/pages.yml).
 
-The deployment workflow runs syntax checks, all Node tests, and an actual headless Chromium game smoke test before publishing. It uses Ubuntu 24.04 for Playwright compatibility.
+## Clover Hollow 5.0 — now a playable storybook town
+
+The main square has a **physical Apple Cart Rescue** instead of only shop
+menus. Find Tilly's striped delivery cart on the east side of the original
+square. Tap/press E beside her to start; chase three rolling apples, pick up
+one at a time, and bring each back to the basket. The courier reacts and a
+celebration stays visible after the rescue. Your ribbon is saved in the
+existing keepsake inventory.
+
+Follow the creek and you may spot a hidden four-leaf clover. It also saves
+without requiring a quest or collecting resources.
+
+In Lantern Quarter, visit the Moonring Toss pavilion near the Festival Green.
+You can enter from the arcade/festival action menu or approach the actual
+pavilion in-world. **Swipe across the game scene to aim, release to throw a
+visible 3D ring, or use left/right/throw controls.** Land at least three of
+five rings to earn the Moonring ribbon. No admission tickets or grinds.
+
+The outdoor camera now favors readable characters and interactions at both
+desktop and iPhone portrait sizes, and the new opt-in soundscape includes
+an original little Clover Hollow melody with day/night arrangements.
 
 ## Play locally
 
@@ -47,6 +66,8 @@ Meet Mayor Thistle and choose one of three lots: South Meadow, Brookside, or Orc
 | --- | --- | --- |
 | Walk | WASD or arrow keys | On-screen joystick |
 | Interact / enter | E or Space | Talk / Enter |
+| Apple cart / secret | E near highlighted object, or click object | Tap highlighted object or TALK |
+| Moonring Toss | Left/right to aim, E/Space to throw, Esc to leave | Swipe and release on scene or use the aim/throw buttons |
 | Satchel | I | Satchel |
 | Decorate at home | B or Decorate | Decorate |
 | Choose furniture | Click a model or catalog item | Tap model or catalog item |
@@ -64,7 +85,7 @@ Meet Mayor Thistle and choose one of three lots: South Meadow, Brookside, or Orc
 - **Presentation:** src/ui/ and src/main.js connect responsive UI, Three.js rendering, cameras, story dialogs, touch movement, and indoor/outdoor transitions.
 - **Saves:** Clover Hollow uses the distinct localStorage key clover-hollow-v1. Willowbend saves are untouched.
 
-The current release is a **playable foundation**, not yet a complete Animal Crossing or Stardew Valley-scale game. More activities, enterable shops, decorating collections, and villager stories can be added without replacing the core architecture.
+The current release is a **playable foundation**, not yet a complete Animal Crossing or Stardew Valley-scale game. Two authored, physical 3D experiences now demonstrate the intended direction. More fully enterable shops, dialogue scenes, environmental storytelling, and physical activities can be added through the same gameplay architecture.
 
 ## Quality checks
 

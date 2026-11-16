@@ -1,0 +1,37 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {createRoofOcclusion} from './roof-occlusion.js';
+
+test('selectively hides a blocking roof and restores shared materials untouched',()=>{
+ const scene=new THREE.Scene(),house=new THREE.Group();
+ scene.add(house);
+ const shared=new THREE.MeshStandardMaterial({color:0xaabbcc});
+ const roof=new THREE.Mesh(new THREE.BoxGeometry(8,.7,2),shared);
+ roof.name='Approved fairy swoop • continuous curved roof';
+ roof.position.set(0,3,6);
+ house.add(roof);
+ const tile=new THREE.Mesh(new THREE.BoxGeometry(8,.2,2),shared);
+ tile.name='Approved fairy roof • colored curved shingles';
+ tile.position.set(0,3.3,6);house.add(tile);
+ const unrelated=new THREE.Mesh(new THREE.BoxGeometry(2,1,2),shared);
+ unrelated.position.set(20,2,5);house.add(unrelated);
+ scene.updateMatrixWorld(true);
+ const fader=createRoofOcclusion([house]);
+ assert.equal(fader.candidateCount,2);
+ const camera=new THREE.PerspectiveCamera();
+ camera.position.set(0,5,12);
+ const player=new THREE.Group();
+ player.position.set(0,0,0);
+ const hidden=fader.update(camera,player);
+ assert.ok(hidden>=1,'obstructing roof must be hidden from view');
+ assert.equal(roof.visible,false);
+ assert.equal(tile.visible,false,'roof shingles should disappear with their own roof');
+ assert.equal(unrelated.visible,true);
+ assert.equal(shared.transparent,false,'do not modify globally cached building materials');
+ camera.position.x=22;
+ assert.equal(fader.update(camera,player),0);
+ assert.equal(roof.visible,true,'the roof must return when the camera moves');
+ fader.restore();
+ assert.equal(tile.visible,true);
+});
