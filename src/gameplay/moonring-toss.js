@@ -36,7 +36,7 @@ export function createMoonringRules(){
   }
   function tick(dt){
     if(mode!=='flying')return;
-    flight+=Math.max(0,Math.min(Number.isFinite(dt)?dt:0,.12))/1.02;
+    flight+=Math.max(0,Math.min(Number.isFinite(dt)?dt:0,.5))/1.02;
     if(flight<1)return;
     flight=1;
     const target=MOONRING_OFFSETS[currentTarget()];
