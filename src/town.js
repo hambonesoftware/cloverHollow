@@ -317,7 +317,7 @@ export function createTown(scene,{quality='medium'}={}){
     };
   }
   const updateNpcSimulation=(dt,daySeconds)=>simulation.advance(dt,daySeconds);
-  function update(dt,t=0,daySeconds=0){
+  function update(dt,t=0,daySeconds=0,story={}){
     simulation.advance(dt,daySeconds);
     for(let i=0;i<simulation.actors.length;i++){
       const data=simulation.actors[i],view=actors[i],model=actorModels.get(data.id);
@@ -336,7 +336,7 @@ export function createTown(scene,{quality='medium'}={}){
     entertainmentDistrict.update(dt,daySeconds);
     const sky=storybookLighting.update(daySeconds);
     atmosphere.update(dt,sky.night);
-    streetLife.update(dt,daySeconds);
+    streetLife.update(dt,daySeconds,story);
   }
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
