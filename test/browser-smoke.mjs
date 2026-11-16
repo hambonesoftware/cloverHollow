@@ -127,7 +127,7 @@ try {
 
   // Post Office: the first registered service is receiving mail. A real
   // UI click must award a one-time keepsake through the existing save model.
-  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(-59,-70)),true);
+  assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(-60,-83)),true);
   await page.locator('#toolbar [data-action="interact"]').click();
   await page.locator('#modal-host [data-action="district-item:0"]').click();
   assert.equal(await page.evaluate(()=>

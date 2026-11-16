@@ -4,9 +4,9 @@
  * New districts extend south of the original z=-68 boundary, with the
  * downtown core nearer the old Mayor's Hall and Lantern Quarter southeast.
  */
-const site=(id,district,x,z,w,d,name,kind,seed=id)=>Object.freeze({
-  id,district,x,z,w,d,name,kind,
-  entrance:Object.freeze([x,z+d/2+1.5]),seed
+const site=(id,district,x,z,w,d,name,kind,seed=id,facing='north')=>Object.freeze({
+  id,district,x,z,w,d,name,kind,facing,
+  entrance:Object.freeze([x,z+(facing==='south'?-d/2-1.5:d/2+1.5)]),seed
 });
 export const WORLD_BOUNDS=Object.freeze({minX:-92,maxX:92,minZ:-143,maxZ:82});
 export const DISTRICTS=Object.freeze({
@@ -24,13 +24,13 @@ export const DISTRICTS=Object.freeze({
   })
 });
 export const DISTRICT_SITES=Object.freeze([
-  site('old-town-post','downtown',-59,-76,12,9,'Clover Post Office','post'),
-  site('old-town-library','downtown',-40,-76,13,10,'Whispering Library','library'),
-  site('old-town-teahouse','downtown',-21,-76,11,9,'Honeycup Tea Room','cafe'),
-  site('old-town-florist','downtown',-4,-76,10,9,'Bluebell Florist','florist'),
+  site('old-town-post','downtown',-60,-77,12,9,'Clover Post Office','post','old-town-post','south'),
+  site('old-town-library','downtown',-41,-77,13,10,'Whispering Library','library','old-town-library','south'),
+  site('old-town-teahouse','downtown',-22,-78,11,9,'Honeycup Tea Room','cafe','old-town-teahouse','south'),
+  site('old-town-florist','downtown',-4,-76,10,9,'Bluebell Florist','florist','old-town-florist','south'),
   site('old-town-guild','downtown',-59,-101,13,10,'Clover Community Hall','community-center'),
-  site('old-town-clinic','downtown',-39,-101,12,10,'Clover Clinic','clinic'),
-  site('old-town-courthouse','downtown',-19,-101,13,10,'Old Town Records','records'),
+  site('old-town-clinic','downtown',-39,-102,12,10,'Clover Clinic','clinic'),
+  site('old-town-courthouse','downtown',-19,-103,13,10,'Old Town Records','records'),
   site('old-town-clock','downtown',-2,-101,10,10,'Clover Hollow Town Hall','town-hall'),
   site('lantern-theatre','entertainment',21,-90,12,10,'Starlight Theatre','theatre'),
   site('lantern-arcade','entertainment',40,-90,12,10,'Firefly Arcade','arcade'),
@@ -67,6 +67,10 @@ export const DISTRICT_PATHS=Object.freeze([
   // Door approach branches from the north-facing storefronts.
   [-59,-70,-59,-70],[-40,-70,-40,-70],[-21,-70,-21,-70],[-4,-70,-4,-70],
   [-59,-94,-59,-94],[-39,-94,-39,-94],[-19,-94,-19,-94],[-2,-94,-2,-94],
+  // A slightly winding market lane joins opposing shopfronts. The bent
+  // centerline deliberately breaks the rigid two-row commercial grid.
+  [-69,-89,-51,-87],[-51,-87,-31,-90],[-31,-90,-11,-87],[-11,-87,7,-89],
+  [-60,-83,-60,-89],[-41,-84,-41,-88],[-22,-84,-22,-89],[-4,-82,-4,-88],
   // A readable promenade between downtown and Lantern Quarter.
   [7,-60,31,-60],[31,-60,31,-70],[7,-94,31,-94],
   [31,-70,31,-132],[12,-84,52,-84],[12,-112,52,-112],

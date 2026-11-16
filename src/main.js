@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {applyGraphicsQuality,selectGraphicsQuality,createFrameProfiler} from './performance/graphics-quality.js';
 import { createTown } from './town.js';
+import {createTownSoundscape} from './audio/town-soundscape.js';
 import { makePerson, animatePerson, updateCharacterAnimation, furniture as buildFurniture } from './art.js';
 import { createMovementController } from './input/movement.js';
 import { createCameraRig } from './camera/camera-rig.js';
@@ -32,6 +33,7 @@ const camera = new THREE.PerspectiveCamera(42, 1, .08, 250);
 const cameraRig = createCameraRig(camera);
 applyGraphicsQuality(renderer,camera,graphicsMode,window.devicePixelRatio||1);
 const graphicsProfiler=createFrameProfiler(renderer);
+const soundscape=createTownSoundscape(window);
 let lastFrameDelta=1/60;
 const townMovement = createMovementController({walkSpeed:6.2,runSpeed:8.3});
 const homeMovement = createMovementController({walkSpeed:3.3,runSpeed:4.6});
@@ -302,7 +304,8 @@ function onActivityRestart(){
 }
 
 ui = new AppUI(uiRoot,game,decorating,{
-  interact,leave,onDistrictAction,onActivityChoice,onActivityCancel,onActivityRestart
+  interact,leave,onDistrictAction,onActivityChoice,onActivityCancel,onActivityRestart,
+  onSoundToggle:enabled=>soundscape.toggle(enabled)
 });
 game.subscribe(updateScene);
 if (currentState.scene === 'home' && currentState.story.homeVisits > 0 &&
@@ -493,7 +496,7 @@ function animate() {
     updateCharacterAnimation(town.player,dt,{
       velocity:motion.velocity,heading:motion.heading
     });
-    town.update?.(dt,walkAnimation,currentState.daySeconds);
+    town.update?.(dt,walkAnimation,currentState.daySeconds,currentState.story);
     cameraRig.update(dt,playerPosition,{walkable:town.walkable});
     saveClock+=dt;
     if(saveClock>=.75){
@@ -512,6 +515,7 @@ function animate() {
   }
   dayClock+=dt;
   if(dayClock>=2){game.advanceDay(dayClock);dayClock=0;}
+  soundscape.update(dt,playerPosition,currentState.daySeconds,currentState.scene==='town');
   renderer.render(currentScene==='home'?inside:outside,camera);
   if(new URLSearchParams(location.search).has('integration-test')) graphicsProfiler.sample(dt,currentScene==='home'?inside:outside,graphicsMode);
 }

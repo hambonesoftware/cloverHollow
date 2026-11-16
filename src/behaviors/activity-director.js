@@ -2,6 +2,13 @@ import {findPedestrianRoute} from '../world/navigation.js';
 import {OCCUPATIONS} from '../occupations/index.js';
 const length=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
 const phases=['resting','delivery','working','shopping','socializing','attending_event','returning_home'];
+// Existing town workers have established homes and jobs. Prefer their own
+// workplace over the first arbitrary matching station in a new district.
+const HOME_STATIONS=Object.freeze({
+  mayor:'mayor',pip:'bakery',bruno:'furniture',dot:'old-town-post',
+  biscuit:'old-town-post',fennel:'old-town-library',hazel:'old-town-florist',
+  clover:'orchard',reed:'creek',mabel:'general'
+});
 export function timePhase(daySeconds){
  const t=((daySeconds%1320)+1320)%1320;
  if(t<170||t>=1190)return 'resting';

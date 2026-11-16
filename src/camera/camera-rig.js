@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { OUTDOOR_CAMERA, INDOOR_CAMERA, fitDistance, constrainCamera, cameraOffset } from './camera-math.js';
+import { OUTDOOR_CAMERA, INDOOR_CAMERA, fitDistance, constrainCamera, cameraOffset, storybookStreetFraming } from './camera-math.js';
 
 /**
  * Third-person village camera and open-front dollhouse camera.
@@ -31,7 +31,9 @@ export function createCameraRig(camera){
   }
   function update(dt,target,{walkable=null}={}){
     const p=profile();
-    const dist=fitDistance(p.distance,camera.aspect,mode)*p.zoom;
+    // Intimate market framing is spatial, smooth and still respects user zoom.
+    const framing=mode==='town'?storybookStreetFraming(target.x,target.z):1;
+    const dist=fitDistance(p.distance,camera.aspect,mode)*p.zoom*framing;
     const originY=mode==='home'?1.40:1.25;
     desiredLook.set(mode==='home'?0:target.x,originY,mode==='home'?0:target.z);
     const offset=cameraOffset(p.yaw,p.pitch,dist);

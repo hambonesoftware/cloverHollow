@@ -1,6 +1,6 @@
 /**
- * A small, renderer-independent pedestrian graph. Streets and porch paths are
- * sampled at 1 world unit. Intersections become shared vertices automatically.
+ * A small, renderer-independent pedestrian graph. Streets and porch paths, including gently angled lanes, are
+ * sampled at approximately 1 world unit. Intersections become shared vertices automatically.
  * A* only follows edges validated against building/well/pond collision.
  * This intentionally avoids direct straight-line NPC routes through cottages.
  */
@@ -25,14 +25,15 @@ export function createPedestrianGraph(segments,walkable){
     return nodes.get(id);
   }
   for(const [x0,z0,x1,z1] of segments){
-    if(x0!==x1&&z0!==z1)throw new Error('Pedestrian paths must be axis aligned');
     if(![x0,z0,x1,z1].every(Number.isInteger))throw new Error('Pedestrian paths require integer coordinates');
-    const count=Math.max(Math.abs(x1-x0),Math.abs(z1-z0));
-    const sx=Math.sign(x1-x0),sz=Math.sign(z1-z0);
+    // Sample gently angled lanes onto the same integer node grid, while
+    // collision-checking every diagonal so residents cannot cut a corner.
+    const count=Math.max(1,Math.abs(x1-x0),Math.abs(z1-z0));
     let previous=null;
     for(let i=0;i<=count;i++){
-      const current=add(x0+i*sx,z0+i*sz);
-      if(previous&&current&&clearSegment(previous,current,walkable)){
+      const t=i/count;
+      const current=add(Math.round(x0+(x1-x0)*t),Math.round(z0+(z1-z0)*t));
+      if(previous&&current&&previous.id!==current.id&&clearSegment(previous,current,walkable)){
         previous.edges.add(current.id);current.edges.add(previous.id);
       }
       previous=current;

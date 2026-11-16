@@ -3,7 +3,8 @@ import { DISTRICT_SITES, DISTRICT_PATHS, DISTRICT_PLACES, WORLD_BOUNDS, DISTRICT
 
 /**
  * Outdoor-only geometry metadata. World units follow our 2.2-unit chibi scale.
- * All facades face +Z, and entrances are in open space, 1.5 units beyond the wall.
+ * Legacy facades face +Z; Old Market's north row faces -Z. Each site
+ * stores its actual open-space entrance 1.5 units beyond the street-facing wall.
  * IDs are stable save/UI keys; don't renumber the three player lots.
  */
 const homes = [

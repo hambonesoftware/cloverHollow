@@ -111,7 +111,11 @@ export function createDowntownDistrict(scene,{sites=[],seed=1,quality='medium'}=
   if(ids.has(site.id))throw new Error('Duplicate downtown site '+site.id);ids.add(site.id);
   const kind=aliases[site.kind]||site.kind;
   const rng=random(hash(site.seed??seed)^hash(site.id)),palette=colors[Math.floor(rng()*colors.length)];
-  const g=new THREE.Group();g.name=site.name||site.id;g.position.set(site.x,0,site.z);g.userData={siteId:site.id,kind,entrance:site.entrance,footprint:{w:site.w,d:site.d}};root.add(g);
+  const g=new THREE.Group();g.name=site.name||site.id;g.position.set(site.x,0,site.z);
+   // The market-facing row looks south across its narrow lane instead of
+   // presenting the backs of eight parallel, identical storefronts.
+   g.rotation.y=site.facing==='south'?Math.PI:0;
+   g.userData={siteId:site.id,kind,entrance:site.entrance,footprint:{w:site.w,d:site.d}};root.add(g);
   const w=Math.max(5.5,site.w-.25),d=Math.max(5.5,site.d-.25),front=d/2;
   if(kind==='market')market(g,w,d,rng);
   else{

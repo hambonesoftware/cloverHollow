@@ -38,10 +38,11 @@ export function createFairyLandscape(scene,{buildings,walkable,routePoints=[],se
     furniture:{accent:0xa6bb8b},general:{accent:0x9ebdcb}
   };
   for(const b of buildings){
-    const front=b.z+b.d/2,door=b.entrance;
+    const direction=b.facing==='south'?-1:1;
+    const front=b.z+direction*b.d/2,door=b.entrance;
     // No decoration crosses the exact front door threshold.
     for(const side of [-1,1]){
-      const x=b.x+side*(b.w/2+1.1),z=front+.85;
+      const x=b.x+side*(b.w/2+1.1),z=front+direction*.85;
       if(safe(x,z,.35)){
         const group=new THREE.Group();group.position.set(x,0,z);scene.add(group);
         const stem=segment(group,[0,.02,0],[0,1.55,0],.065,0x7a9463);
@@ -56,7 +57,7 @@ export function createFairyLandscape(scene,{buildings,walkable,routePoints=[],se
     }
     // Footprint-exterior stepping stones are flat, nonblocking ground decals.
     for(let k=0;k<3;k++){
-      const x=door[0],z=door[1]+.4+k*.62;
+      const x=door[0],z=door[1]+direction*(.4+k*.62);
       if(!walkable(x,z))continue;
       pebbles.push({x,y:.018,z,sx:.45,sy:.07,sz:.31,ry:(random()-.5)*.25});
     }
@@ -71,8 +72,12 @@ export function createFairyLandscape(scene,{buildings,walkable,routePoints=[],se
   }
   // Neighborhood trees are placed only where existing pedestrian collision
   // logic and navigation keep a generous clearance. Their crowns may overhang.
-  for(let i=0;i<540;i++){
-    const x=-77+random()*153,z=-62+random()*133;
+  for(let i=0;i<900;i++){
+    // Plant both old and new districts. The former -62..71 range left
+    // almost the entire southern commercial town empty and exposed.
+    const south=i%2===0;
+    const x=south?-80+random()*145:-77+random()*153;
+    const z=south?-139+random()*83:-62+random()*133;
     if(!safe(x,z,3.2))continue;
     if(Math.abs(x)<16&&z>-28&&z<20)continue;
     if(random()>.24)continue;

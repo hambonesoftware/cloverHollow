@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {createStorybookLighting} from './rendering/storybook-lighting.js';
+import {createStreetLife} from './environment/street-life.js';
 import {createStorybookAtmosphere} from './atmosphere/storybook-atmosphere.js';
 import { LOTS } from './rules.js';
 import { box, sphere, cylinder, flat, sign, makePerson, tree, flower, gardenBench, lampPost } from './art.js';
@@ -236,8 +237,19 @@ export function createTown(scene,{quality='medium'}={}){
 
   const player=makePerson('kid',{shirt:0x7aaf96,hair:0x634f4e,trousers:0x6a91a4});
   scene.add(player);
-  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:downtownDistrict.activityAnchors??[]});
+  // The approved legacy bakery, workshop and general store should be as
+  // inhabited as the new civic district. These anchors sit on existing paths.
+  const legacyWorkStations=[
+    {id:'bakery:oven',siteId:'bakery',role:'baker',pose:'baking',activity:'working',x:-22,z:-13,capacity:1,facing:0},
+    {id:'furniture:bench',siteId:'furniture',role:'carpenter',pose:'hammering',activity:'working',x:20,z:-13,capacity:1,facing:0},
+    {id:'general:counter',siteId:'general',role:'shopkeeper',pose:'restocking',activity:'working',x:39,z:-13,capacity:1,facing:0},
+    {id:'orchard:watering',siteId:'orchard',role:'gardener',pose:'gardening',activity:'working',x:-55,z:46,capacity:1,facing:0},
+    {id:'creek:cleanup',siteId:'creek',role:'maintenance',pose:'sweeping',activity:'working',x:52,z:-9,capacity:1,facing:0}
+  ];
+  const allStations=[...(downtownDistrict.activityAnchors??[]),...legacyWorkStations];
+  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:allStations});
   const atmosphere=createStorybookAtmosphere(scene,{quality,walkable,locations:routePoints});
+  const streetLife=createStreetLife(scene,{quality});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
     const model=makePerson(data.kind,{shirt:data.shirt,skin:data.kind==='cat'?0xf4c7a6:undefined});
@@ -297,13 +309,15 @@ export function createTown(scene,{quality='medium'}={}){
       dressedCitizens:[...actorModels.values()].filter(model=>!!model.userData.outfit).length,
       professions:new Set(simulation.actors.map(actor=>actor.occupation).filter(Boolean)).size,
       registeredStations:simulation.activityDirector?.stations.length??0,
+      storyVignettes:streetLife.vignetteCount,
+      marketOpen:streetLife.sample(420).marketOpen,
       activeCitizens:simulation.actors.filter(actor=>actor.visible).length,
       lightingActive:!!storybookLighting.sun,
       districtBuildings:downtownDistrict.root.children.length
     };
   }
   const updateNpcSimulation=(dt,daySeconds)=>simulation.advance(dt,daySeconds);
-  function update(dt,t=0,daySeconds=0){
+  function update(dt,t=0,daySeconds=0,story={}){
     simulation.advance(dt,daySeconds);
     for(let i=0;i<simulation.actors.length;i++){
       const data=simulation.actors[i],view=actors[i],model=actorModels.get(data.id);
@@ -322,13 +336,14 @@ export function createTown(scene,{quality='medium'}={}){
     entertainmentDistrict.update(dt,daySeconds);
     const sky=storybookLighting.update(daySeconds);
     atmosphere.update(dt,sky.night);
+    streetLife.update(dt,daySeconds,story);
   }
   useLot(null);
   return {scene,player,actors,focusables,buildings,walkable,update,useLot,
     locations:PLACES,obstacles,pedestrianGraph,findRoute,landscape,
     cityInfrastructure,districtSites:[...DISTRICT_SITES,...SCENIC_ENTERTAINMENT_SITES],
     districts:{downtown:downtownDistrict,entertainment:entertainmentDistrict},
-    districtActions,storybookLighting,atmosphere,
+    districtActions,storybookLighting,atmosphere,streetLife,
     getNearestBuilding,getNearestInteractable:getNearestBuilding,
     getPlayerLot,getNpcState,updateNpcSimulation,visualDiagnostics};
 }

@@ -20,6 +20,7 @@ export class AppUI {
     this.districtView = null;
     this.activityView = null;
     this.toastTimer = null;
+    this.soundEnabled = false;
     root.innerHTML = `
       <div class="hud"><div class="brand" id="brand"></div><div class="status" id="status"></div></div>
       <nav class="toolbar" id="toolbar" aria-label="Game actions"></nav>
@@ -93,6 +94,10 @@ export class AppUI {
     window.addEventListener('blur',reset);
   }
   _act(action) {
+    if (action === 'sound') {
+      this.soundEnabled=Boolean(this.actions.onSoundToggle?.(!this.soundEnabled));
+      this.render();return;
+    }
     if (action === 'interact') { this.actions.interact(); return; }
     if (action.startsWith('district-item:')) {
       const index=Number(action.slice('district-item:'.length));
@@ -339,6 +344,7 @@ export class AppUI {
     const actions = home
       ? [['Satchel', 'inventory'], ['Decorate', 'decorate'], ['Leave Cottage', 'leave']]
       : [['Talk / Enter', 'interact'], ['Satchel', 'inventory']];
+    actions.push([this.soundEnabled?'♪ Sound On':'♪ Sound Off','sound']);
     actions.push(['? Help', 'help']);
     this.root.querySelector('#toolbar').innerHTML = actions.map(([label, action]) =>
       `<button data-action="${action}" class="${this.panel === action ? 'active' : ''}">${escapeHtml(label)}</button>`).join('');

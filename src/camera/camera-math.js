@@ -1,5 +1,11 @@
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
-export const OUTDOOR_CAMERA=Object.freeze({yaw:.635,pitch:.55,distance:27.5,zoom:1});
+// Lower, closer framing lets the player read faces, shop windows and carts.
+export const OUTDOOR_CAMERA=Object.freeze({yaw:.635,pitch:.49,distance:24.5,zoom:1});
+export function storybookStreetFraming(x,z){
+  const market=Math.max(0,1-Math.hypot(x+32,z+88)/55);
+  const square=Math.max(0,1-Math.hypot(x,z-4)/37);
+  return 1-.12*Math.max(market,square);
+}
 export const INDOOR_CAMERA=Object.freeze({yaw:.71,pitch:.62,distance:18.5,zoom:1});
 export function fitDistance(base,aspect,mode='town') {
   const a=clamp(Number.isFinite(aspect)?aspect:1,.35,3);

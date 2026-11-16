@@ -30,7 +30,7 @@ export function updateCharacterAnimation(group,dt,{
   s.sit=approach(s.sit,sitting?1:0,7,delta);
   s.expression=expression;
   s.pose=pose;
-  const working=['sorting-mail','baking','hammering','gardening','sweeping','reading','serving','restocking','performing-music','applauding','greeting','talking','delivering-parcels','browsing'].includes(pose);
+  const working=['sorting-mail','baking','hammering','gardening','sweeping','reading','serving','restocking','performing-music','applauding','greeting','talking','delivering-parcels','browsing','arranging-flowers','arranging-display','stocking-shelves','reading-notices','working'].includes(pose);
   const actionPulse=Math.sin(s.elapsed*(pose==='hammering'?9:pose==='sweeping'?5:3.5));
   const desired=heading??(speed>.08?Math.atan2(velocity.x,velocity.z):group.rotation.y);
   if(!s.initialized){s.heading=group.rotation.y;s.initialized=true;}
@@ -49,7 +49,7 @@ export function updateCharacterAnimation(group,dt,{
     rig.arms[i].rotation.x=-step*sign*.48*weight+s.carry*(-.78)+s.talk*Math.sin(s.elapsed*9+i*2)*.24;
     rig.arms[i].rotation.z=sign*(.25+s.carry*.18);
     if(working&&!weight){
-      if(['sorting-mail','baking','reading','serving','restocking','delivering-parcels'].includes(pose))rig.arms[i].rotation.x=-.75+actionPulse*.15;
+      if(['sorting-mail','baking','reading','serving','restocking','delivering-parcels','arranging-flowers','arranging-display','stocking-shelves','reading-notices','working'].includes(pose))rig.arms[i].rotation.x=-.75+actionPulse*.15;
       else if(['hammering','sweeping','gardening','performing-music'].includes(pose))rig.arms[i].rotation.x=-.6+actionPulse*(i===1?.55:.25);
       else if(['applauding','greeting','talking'].includes(pose))rig.arms[i].rotation.x=-.35+actionPulse*.32;
     }

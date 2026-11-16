@@ -114,6 +114,8 @@ export function decorateDowntownBuilding(group,site,kind,{seed=1,quality='medium
  const entranceZ=Array.isArray(site.entrance)?site.entrance[1]:site.z+site.d/2+1.5;
  const approachX=Array.isArray(site.entrance)?site.entrance[0]:site.x;
  stations.push(station(site,'service',identity.role,identity.pose,approachX,entranceZ));
- stations.push(station(site,'delivery','courier','delivering-parcels',approachX,entranceZ+1.1));
+ const streetSide=site.facing==='south'?-1:1;
+ stations.push(station(site,'delivery',kind==='post-office'?'postal-worker':'courier',
+   'delivering-parcels',approachX,entranceZ+streetSide*1.1));
  return stations;
 }

@@ -31,7 +31,9 @@ test('all district identities, entrances, service actions and activity stations 
   for(const a of district.activityAnchors.filter(a=>a.siteId===site.id)){
    assert.ok(Number.isFinite(a.x)&&Number.isFinite(a.z));
    assert.ok(a.capacity>=1&&a.role&&a.pose&&a.activity);
-   assert.ok(a.z>=site.z+site.d/2+1.5);
+   // Stations remain on the actual street-facing side of both rows.
+   if(site.facing==='south')assert.ok(a.z<=site.entrance[1]+.01);
+   else assert.ok(a.z>=site.entrance[1]-.01);
   }
  }
  district.update(.016,500);
