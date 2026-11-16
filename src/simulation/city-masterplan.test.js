@@ -18,7 +18,7 @@ test('district registry is immutable, unique and nonoverlapping',()=>{
     assert.ok(['downtown','entertainment'].includes(site.district));
     assert.ok(!ids.has(site.id),site.id);ids.add(site.id);
     assert.ok(site.seed&&site.kind&&site.name);
-    assert.deepEqual(site.entrance,[site.x,site.z+site.d/2+1.5]);
+    assert.deepEqual(site.entrance,[site.x,site.z+(site.facing==='south'?-site.d/2-1.5:site.d/2+1.5)]);
     assert.ok(site.x-site.w/2>=WORLD_BOUNDS.minX&&site.x+site.w/2<=WORLD_BOUNDS.maxX);
     assert.ok(site.z-site.d/2>=WORLD_BOUNDS.minZ&&site.z+site.d/2<=WORLD_BOUNDS.maxZ);
     for(const other of BUILDINGS)if(other.id!==site.id)
