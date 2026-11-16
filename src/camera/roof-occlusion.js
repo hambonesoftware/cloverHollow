@@ -20,6 +20,9 @@ export function createRoofOcclusion(buildingRoots=[]){
       originals.set(object,object.visible);
     });
   }
+  // Raycast the main shell only; instanced roof shingles can contain
+  // hundreds of tiles per house, yet are hidden together with their shell.
+  const rayMeshes=candidates.filter(m=>!/shingles/i.test(m.name));
   const raycaster=new THREE.Raycaster(),from=new THREE.Vector3(),
     to=new THREE.Vector3(),direction=new THREE.Vector3();
   function restore(){
@@ -36,7 +39,7 @@ export function createRoofOcclusion(buildingRoots=[]){
     if(distance<2.2)return 0;
     raycaster.set(from,direction.normalize());
     raycaster.far=Math.max(0,distance-.5);
-    const hits=raycaster.intersectObjects(candidates,false);
+    const hits=raycaster.intersectObjects(rayMeshes,false);
     if(!hits.length)return 0;
     // Hide every overlapping roof piece from the same blocking building.
     // Otherwise one shingle mesh can still cover the whole player.
