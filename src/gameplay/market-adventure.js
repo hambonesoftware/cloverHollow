@@ -6,12 +6,12 @@
 export const APPLE_REWARD='Apple Cart Rescue Ribbon';
 export const HIDDEN_REWARD='The Creekside Four-Leaf Clover';
 export const MARKET_STAGE=Object.freeze({
-  cart:Object.freeze({x:8,z:17}),
-  basket:Object.freeze({x:5,z:17}),
+  cart:Object.freeze({x:12,z:17}),
+  basket:Object.freeze({x:6,z:17}),
   apples:Object.freeze([
-    Object.freeze({x:12,z:17}),
-    Object.freeze({x:13,z:21}),
-    Object.freeze({x:9,z:25})
+    Object.freeze({x:16,z:18}),
+    Object.freeze({x:14,z:23}),
+    Object.freeze({x:10,z:26})
   ]),
   secret:Object.freeze({x:49,z:17})
 });
