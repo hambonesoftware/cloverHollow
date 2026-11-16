@@ -37,7 +37,7 @@ const soundscape=createTownSoundscape(window);
 let lastFrameDelta=1/60;
 const townMovement = createMovementController({walkSpeed:6.2,runSpeed:8.3});
 const homeMovement = createMovementController({walkSpeed:3.3,runSpeed:4.6});
-const town = createTown(outside,{quality:graphicsMode});
+const town = createTown(outside,{quality:graphicsMode,gifts:game.state.gifts});
 const indoorPlayer = makePerson('kid', { shirt: 0x7aaf96, hair: 0x634f4e, trousers: 0x6a91a4 });
 indoorPlayer.position.set(0, 0, 2.1);
 inside.add(indoorPlayer);
@@ -197,9 +197,25 @@ function leave() {
   ui.toast('Back into the fresh Clover Hollow air!');
 }
 
+function interactWorld(targetId=null) {
+  if(currentState.scene!=='town'||ui.blocksMovement)return false;
+  const result=town.playableMarket.interact(playerPosition.x,playerPosition.z,
+    targetId?{id:targetId}:{});
+  if(!result)return false;
+  if(result.reward){
+    const saved=game.awardKeepsake(result.reward);
+    if(saved.ok&&!saved.value.alreadyOwned) {
+      ui.toast('A new keepsake is yours! '+result.text);
+    }else ui.toast(result.text);
+  }else ui.toast(result.text);
+  ui.setWorldPrompt(town.playableMarket.prompt(playerPosition.x,playerPosition.z),true);
+  cameraRig.focusOn?.(playerPosition.x+1.4,playerPosition.z+1.8,1.7);
+  return true;
+}
 function interact() {
   if (ui.blocksMovement) return;
   if (currentState.scene === 'home') { leave(); return; }
+  if(interactWorld())return;
   const x = playerPosition.x, z = playerPosition.z;
   const distances = [];
   for (const place of town.focusables ?? []) {
@@ -317,6 +333,9 @@ if (fallbackRoom) ui.toast('Preview room active. The full dollhouse module will 
 if (new URLSearchParams(location.search).has('integration-test')) {
   window.__cloverTest = {
     state: () => game.state,
+    marketState: () => town.playableMarket.inspect(),
+    marketPrompt: () => town.playableMarket.prompt(playerPosition.x,playerPosition.z),
+    marketInteract: (id=null) => interactWorld(id),
     townPosition(x, z) {
       if (currentState.scene !== 'town' || !town.walkable(x, z)) return false;
       playerPosition = { x, z };
@@ -422,9 +441,17 @@ function releaseCameraPointer(event) {
   const tap=!p.moved&&cameraPointers.size===1;
   cameraPointers.delete(event.pointerId);
   if(cameraPointers.size<2)pinchDistance=null;
-  if(event.type!=='pointerup'||!tap||ui.blocksMovement||ui.isDecorating||currentState.scene!=='home')return;
+  if(event.type!=='pointerup'||!tap||ui.blocksMovement||ui.isDecorating)return;
   const ray=new THREE.Raycaster();
   ray.setFromCamera(canvasPoint(event),camera);
+  if(currentState.scene==='town'){
+    const picked=town.playableMarket.pick(ray);
+    if(picked){
+      if(!interactWorld(picked))ui.toast('Walk a little closer, then tap the object or press Talk.');
+    }
+    return;
+  }
+  if(currentState.scene!=='home')return;
   let picked=null;
   try {picked=dollhouse.pickFurniture?.(ray);} catch(error){console.warn('Dollhouse picking',error);}
   const id=typeof picked==='string'?picked:(picked?.id??picked?.userData?.furnitureId??null);
@@ -472,6 +499,7 @@ const clock=new THREE.Clock();
 let walkAnimation=0;
 let saveClock=0;
 let dayClock=0;
+let promptClock=0;
 function animate() {
   requestAnimationFrame(animate);
   const dt=Math.min(clock.getDelta(), .05);
@@ -498,12 +526,18 @@ function animate() {
     });
     town.update?.(dt,walkAnimation,currentState.daySeconds,currentState.story);
     cameraRig.update(dt,playerPosition,{walkable:town.walkable});
+    promptClock+=dt;
+    if(promptClock>.12){
+      promptClock=0;
+      ui.setWorldPrompt(town.playableMarket.prompt(playerPosition.x,playerPosition.z));
+    }
     saveClock+=dt;
     if(saveClock>=.75){
       saveClock=0;
       game.setTownPosition(playerPosition.x,playerPosition.z);
     }
   }else{
+    ui.setWorldPrompt(null);
     const motion=homeMovement.step(input,dt,{
       x:indoorPlayer.position.x,z:indoorPlayer.position.z
     },(px,pz)=>isWalkable(px,pz,currentState.placements));
