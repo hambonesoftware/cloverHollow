@@ -160,15 +160,21 @@ try {
   assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(40,-83.5)),true);
   await page.locator('#toolbar [data-action="interact"]').click();
   await page.locator('#modal-host [data-action="district-item:0"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().active),true,
+    'the arcade must open a playable Three.js booth instead of a modal quiz');
   for(let round=0;round<5;round++){
-    const prompt=await page.evaluate(()=>window.__cloverTest.festivalPrompt());
-    assert.ok(prompt,'arcade ring toss must offer five rounds');
-    const selected=Math.round(prompt.target*4);
-    await page.locator('#modal-host [data-action="activity-choice:'+selected+'"]').click();
+    const state=await page.evaluate(()=>window.__cloverTest.moonringState());
+    assert.equal(state.mode,'aiming','ring must be aimed in the real 3D world');
+    const targetAim=[-.8,0,.8][state.target];
+    const button=targetAim<0?'toss-left':'toss-right';
+    for(let click=0;click<Math.round(Math.abs(targetAim)/.2);click++)
+      await page.locator('#world-game [data-action="'+button+'"]').click();
+    await page.locator('#world-game [data-action="toss-throw"]').click();
+    await page.waitForFunction(r=>window.__cloverTest.moonringState().round>r,round,{timeout:15000});
   }
   assert.equal(await page.evaluate(()=>
     window.__cloverTest.state().gifts['Moonring ribbon']),1);
-  await page.locator('#modal-host [data-action="dismiss"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().mode),'finished');
   await page.screenshot({path:resolve(root,'test-results/lantern-quarter-desktop.png')}).catch(()=>{});
 
   // Public festival and garden are genuine walk-through destinations. They
@@ -179,8 +185,9 @@ try {
   await page.locator('#toolbar [data-action="interact"]').click();
   assert.match(await page.locator('#modal-host').innerText(),/Lantern Festival Green/);
   await page.locator('#modal-host [data-action="district-item:0"]').click();
-  assert.match(await page.locator('#modal-host').innerText(),/Moonring Toss/);
-  await page.locator('#modal-host [data-action="activity-cancel"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().mode),'aiming');
+  await page.locator('#world-game [data-action="toss-exit"]').click();
+  assert.equal(await page.evaluate(()=>window.__cloverTest.moonringState().mode),'idle');
 
   assert.equal(await page.evaluate(()=>window.__cloverTest.townPosition(20,-131)),true);
   await page.locator('#toolbar [data-action="interact"]').click();
