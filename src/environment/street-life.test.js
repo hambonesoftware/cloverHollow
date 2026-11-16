@@ -20,6 +20,10 @@ test('scene mounts animated vignettes and can be disposed safely',()=>{
     assert.ok(scene.children.includes(life.root));
     assert.equal(life.vignetteCount,5);
     assert.ok(life.root.children.length>=5);
+    const keepsake=life.root.getObjectByName('Housewarming keepsake');
+    assert.ok(keepsake&&!keepsake.visible);
+    life.update(1/60,420,{housewarming:true,conversations:{Pip:4}});
+    assert.ok(keepsake.visible,'past housewarming remains visible in the public square');
     assert.doesNotThrow(()=>life.update(1/60,620));
     assert.doesNotThrow(()=>life.update(1/60,990));
     life.dispose();
