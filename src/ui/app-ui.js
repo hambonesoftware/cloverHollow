@@ -21,11 +21,14 @@ export class AppUI {
     this.activityView = null;
     this.toastTimer = null;
     this.soundEnabled = false;
+    this.worldPrompt = null;
+    this.worldPromptSignature = '';
     root.innerHTML = `
       <div class="hud"><div class="brand" id="brand"></div><div class="status" id="status"></div></div>
       <nav class="toolbar" id="toolbar" aria-label="Game actions"></nav>
       <div id="panel-host"></div><div id="modal-host"></div>
       <div id="decor-host"></div><div class="hint" id="hint"></div>
+      <div class="world-prompt" id="world-prompt" role="status" aria-live="off" hidden></div>
       <div class="move-zone" id="move-zone" aria-label="Touch area for movement">
         <div class="joystick" id="joystick" aria-label="Floating movement joystick">
           <div class="joystick-knob" id="joystick-knob"></div>
@@ -334,6 +337,29 @@ export class AppUI {
       <div class="eyebrow">${escapeHtml(speaker)}</div><h2>${escapeHtml(title)}</h2>
       <p>${escapeHtml(body)}</p>${extra}<footer>${footer}</footer></article></div>`;
   }
+  setWorldPrompt(prompt,force=false) {
+    const key=prompt?JSON.stringify(prompt):'';
+    if(!force&&key===this.worldPromptSignature)return;
+    this.worldPrompt=prompt;
+    this.worldPromptSignature=key;
+    const el=this.root.querySelector('#world-prompt');
+    if(el) {
+      el.hidden=!prompt||this.game.state.scene!=='town';
+      if(prompt)el.innerHTML=
+        '<strong>✦ '+escapeHtml(prompt.title)+'</strong>'+
+        '<span>'+escapeHtml(prompt.subtitle||'')+'</span>'+
+        (prompt.action?'<small>Press E / Space · Tap the hand button</small>':'');
+      else el.textContent='';
+    }
+    const touch=this.root.querySelector('.interact-touch');
+    if(touch&&this.game.state.scene==='town') {
+      const label=prompt?.action?
+        (prompt.target==='basket'?'PLACE':prompt.target?.startsWith('apple-')?'CATCH':
+        prompt.target==='secret'?'LOOK':prompt.target==='cart'?'HELP':'USE'):'TALK';
+      touch.innerHTML=escapeHtml(label)+'<span aria-hidden="true">✦</span>';
+      touch.setAttribute('aria-label',prompt?.action?prompt.title:'Interact');
+    }
+  }
   render() {
     const state = this.game.state;
     const decor = this.decorating.state;
@@ -356,6 +382,7 @@ export class AppUI {
     touchAction.innerHTML=home?'LEAVE<span aria-hidden="true">⌂</span>':'TALK<span aria-hidden="true">✦</span>';
     this.root.querySelector('#panel-host').innerHTML = this._panel(state, decor);
     this.root.querySelector('#modal-host').innerHTML = this._dialog(state);
+    this.setWorldPrompt(home?null:this.worldPrompt,true);
     this.root.querySelector('#decor-host').innerHTML = home && decor.mode
       ? `<div class="decor-actions">
         <button data-action="rotate">↻ Rotate</button>
