@@ -330,7 +330,7 @@ export class AppUI {
     } else if (this.modal === 'help') {
       speaker = 'Field Guide';
       title = 'A cozy guide to Clover Hollow';
-      body = 'WASD or arrow keys: walk. E or Space: interact. I: satchel. Escape: close menus. Drag the thumbstick and tap Talk on touch screens. Visit the Mayor for a deed, then explore Old Town for the Post Office, library, Town Hall and shops. Head south to Lantern Quarter for games, music, and theater. Decorate your own two-wall cottage from the home menu.';
+      body = 'WASD or arrow keys: walk. E or Space: interact. I: satchel. Escape: close menus. Touch: drag the thumbstick, and tap TALK or a glowing 3D object to interact. A courier needs help with a runaway apple cart near Clover Square! Catch three rolling apples, carry them to her basket, and discover secrets by exploring the creek. Visit the Mayor for a home; head south for shops, theatre, games and music. Everything you discover lives inside the 3D world.';
       footer = button('Got it', 'dismiss', true);
     }
     return `<div class="backdrop"><article class="dialog" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}">
