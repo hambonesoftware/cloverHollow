@@ -177,6 +177,7 @@ function updateScene(state) {
   currentScene = state.scene;
   dollhouse.setVisible?.(state.scene === 'home');
   if (state.scene === 'home') {
+    town.cameraOcclusion.restore();
     indoorPlayer.position.set(0,0,2.1);
     homeMovement.reset();
     positionHomeCamera();
@@ -331,6 +332,8 @@ function onDistrictAction(option){
       playerPosition={x:40,z:-103};
       town.player.position.set(40,0,-103);
       game.setTownPosition(40,-103);
+      cameraRig.setMode('town',{snap:true});
+      cameraRig.update(1/60,playerPosition,{walkable:town.walkable});
     }
     town.moonring.rules.start();
     const message=town.moonring.rules.takeEvent();
@@ -393,6 +396,11 @@ if (new URLSearchParams(location.search).has('integration-test')) {
       playerPosition = { x, z };
       town.player.position.set(x, 0, z);
       game.setTownPosition(x, z);
+      // Integration screenshots should show the requested place, not a
+      // transitional camera frame from a location teleported across town.
+      cameraRig.setMode('town',{snap:true});
+      cameraRig.update(1/60,playerPosition,{walkable:town.walkable});
+      town.cameraOcclusion.update(camera,town.player);
       return true;
     },
     previewAt: (x, z) => decorating.preview(x, z),
@@ -580,6 +588,7 @@ let walkAnimation=0;
 let saveClock=0;
 let dayClock=0;
 let promptClock=0;
+let roofClock=0;
 function animate() {
   requestAnimationFrame(animate);
   const frameDt=Math.min(clock.getDelta(),.6);
@@ -613,6 +622,11 @@ function animate() {
       if(tossEvent.kind==='finish')ui.setWorldGame(null,true);
     }
     cameraRig.update(dt,playerPosition,{walkable:town.walkable});
+    roofClock+=frameDt;
+    if(roofClock>.18){
+      roofClock=0;
+      town.cameraOcclusion.update(camera,town.player);
+    }
     promptClock+=dt;
     if(promptClock>.12){
       promptClock=0;
