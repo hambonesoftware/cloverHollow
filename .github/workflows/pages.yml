@@ -31,6 +31,7 @@ jobs:
           node --check src/input/movement.test.js
           node --check src/camera/camera-math.js
           node --check src/camera/camera-rig.js
+          node --check src/camera/roof-occlusion.js
           node --check src/characters/chibi.js
           node --check src/characters/animation.js
           node --check src/visual/gfx.js
