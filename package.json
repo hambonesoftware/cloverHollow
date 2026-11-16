@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/*.test.js src/viewmodels/*.test.js src/persistence/*.test.js src/interiors/*.test.js src/simulation/*.test.js src/architecture/*.test.js src/input/*.test.js src/characters/*.test.js src/environment/*.test.js src/city/*.test.js src/districts/downtown/*.test.js src/activities/entertainment/*.test.js src/rendering/*.test.js",
+    "test": "node --test test/*.test.js src/viewmodels/*.test.js src/persistence/*.test.js src/interiors/*.test.js src/simulation/*.test.js src/architecture/*.test.js src/input/*.test.js src/characters/*.test.js src/audio/*.test.js src/environment/*.test.js src/city/*.test.js src/districts/downtown/*.test.js src/activities/entertainment/*.test.js src/rendering/*.test.js",
     "serve": "npx http-server . -p 8900 -c-1",
     "test:browser": "node test/browser-smoke.mjs"
   },
