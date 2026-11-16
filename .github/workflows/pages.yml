@@ -37,6 +37,7 @@ jobs:
           node --check src/environment/street-life.js
           node --check src/gameplay/market-adventure.js
           node --check src/gameplay/market-scene.js
+          node --check src/gameplay/moonring-toss.js
           node --check src/interiors/fairy-details.js
           node --check src/ui/app-ui.js
           node --check src/viewmodels/game-view-model.js
