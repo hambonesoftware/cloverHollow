@@ -236,7 +236,17 @@ export function createTown(scene,{quality='medium'}={}){
 
   const player=makePerson('kid',{shirt:0x7aaf96,hair:0x634f4e,trousers:0x6a91a4});
   scene.add(player);
-  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:downtownDistrict.activityAnchors??[]});
+  // The approved legacy bakery, workshop and general store should be as
+  // inhabited as the new civic district. These anchors sit on existing paths.
+  const legacyWorkStations=[
+    {id:'bakery:oven',siteId:'bakery',role:'baker',pose:'baking',activity:'working',x:-22,z:-13,capacity:1,facing:0},
+    {id:'furniture:bench',siteId:'furniture',role:'carpenter',pose:'hammering',activity:'working',x:20,z:-13,capacity:1,facing:0},
+    {id:'general:counter',siteId:'general',role:'shopkeeper',pose:'restocking',activity:'working',x:39,z:-13,capacity:1,facing:0},
+    {id:'orchard:watering',siteId:'orchard',role:'gardener',pose:'gardening',activity:'working',x:-55,z:46,capacity:1,facing:0},
+    {id:'creek:cleanup',siteId:'creek',role:'maintenance',pose:'sweeping',activity:'working',x:52,z:-9,capacity:1,facing:0}
+  ];
+  const allStations=[...(downtownDistrict.activityAnchors??[]),...legacyWorkStations];
+  const simulation=createNpcSimulation(pedestrianGraph,{visitorCount:16,activityAnchors:allStations});
   const atmosphere=createStorybookAtmosphere(scene,{quality,walkable,locations:routePoints});
   const actorModels=new Map();
   const actors=simulation.actors.map(data=>{
