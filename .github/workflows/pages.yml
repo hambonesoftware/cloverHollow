@@ -34,6 +34,7 @@ jobs:
           node --check src/architecture/generator.js
           node --check src/architecture/approved-cottage.js
           node --check src/environment/landscape.js
+          node --check src/environment/street-life.js
           node --check src/interiors/fairy-details.js
           node --check src/ui/app-ui.js
           node --check src/viewmodels/game-view-model.js
