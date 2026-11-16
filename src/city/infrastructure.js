@@ -30,16 +30,19 @@ function bench(root,x,z) {
 }
 function path(root,segment,wide) {
   const [x0,z0,x1,z1]=segment;
-  const w=(x0===x1?(wide?4.3:2.3):Math.abs(x1-x0)+(wide?4.3:2.3));
-  const d=(z0===z1?(wide?4.3:2.3):Math.abs(z1-z0)+(wide?4.3:2.3));
-  const x=(x0+x1)/2,z=(z0+z1)/2;
-  block(root,w+.5,.035,d+.5,0x9b9b86,x,-.052,z);
-  block(root,w,.02,d,wide?0xd8bfa0:0xcbb9a5,x,-.026,z);
+  const length=Math.max(.15,Math.hypot(x1-x0,z1-z0));
+  const width=wide?4.3:2.3;
+  const x=(x0+x1)/2,z=(z0+z1)/2,angle=-Math.atan2(z1-z0,x1-x0);
+  block(root,length+.5,.035,width+.5,0x9b9b86,x,-.052,z).rotation.y=angle;
+  block(root,length,.02,width,wide?0xd8bfa0:0xcbb9a5,x,-.026,z).rotation.y=angle;
 }
 export function createCityInfrastructure(scene,{quality='mobile'}={}) {
   const root=new THREE.Group();root.name='Clover Hollow public infrastructure';
   scene.add(root);
-  for(let i=0;i<DISTRICT_PATHS.length;i++)path(root,DISTRICT_PATHS[i],i<16);
+  for(let i=0;i<DISTRICT_PATHS.length;i++){
+    const [x0,z0,x1,z1]=DISTRICT_PATHS[i];
+    path(root,DISTRICT_PATHS[i],i<16||(z0< -84&&z0> -92&&z1< -84&&z1> -92));
+  }
   // Plazas sit on circulation edges but never create solid blockers.
   block(root,24,.026,9,0xe0c9aa,-32,-.012,-60);
   block(root,27,.026,9,0xbdb1b1,31,-.012,-102);
