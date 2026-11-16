@@ -134,7 +134,7 @@ export function createStreetLife(scene,{quality='medium'}={}){
   }
   // A small physical memory of the player's first housewarming. The
   // existing save's story.housewarming flag controls this permanent bunting.
-  const welcome=new THREE.Group();welcome.position.set(-10,0,11);root.add(welcome);
+  const welcome=new THREE.Group();welcome.name='Housewarming keepsake';welcome.position.set(-10,0,11);root.add(welcome);
   for(const x of [-1.8,1.8])block(welcome,.12,2.25,.12,0x94725e,x,1.12,0);
   block(welcome,3.9,.10,.12,0x9d8067,0,2.22,0);
   for(let i=0;i<7;i++){
