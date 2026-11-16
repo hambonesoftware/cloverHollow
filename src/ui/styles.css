@@ -133,3 +133,33 @@
 @media (max-width:700px) and (orientation:landscape){
   .world-prompt{bottom:15px;max-width:44vw;left:54%}
 }
+
+/* Actual world-space minigames: compact controls, not a modal quiz. */
+.world-game{
+  pointer-events:auto;position:absolute;left:50%;bottom:24px;
+  transform:translateX(-50%);width:min(570px,92vw);
+  border:2px solid #d3b07a;border-radius:17px;
+  background:#fff4d9ed;color:#594736;text-align:center;padding:9px 13px;
+  box-shadow:0 6px 0 #735d3e32,0 9px 30px #39362b66;backdrop-filter:blur(6px);
+}
+.world-game[hidden]{display:none!important}
+.world-game strong{display:block;font-size:14px;letter-spacing:.08em}
+.world-game span{display:block;font-size:12px;margin:3px 0 7px}
+.world-game small{display:block;font-size:10px;opacity:.8;margin-top:4px}
+#game-ui .world-game button{pointer-events:auto}
+.world-game-controls{display:flex;align-items:center;justify-content:center;gap:6px}
+.world-game-controls button{border:2px solid #d5b489;border-radius:10px;
+  background:#fffbee;color:#604f3e;font-weight:800;min-height:38px;padding:6px 11px}
+.world-game-controls button[data-action="toss-throw"]{background:#61907c;color:white;border-color:#507666}
+.playing-world-game .move-zone{display:none}
+.playing-world-game .hint{display:none}
+@media(max-width:700px){
+  .world-game{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 4px);
+    width:min(360px,83vw);left:48%;padding:6px 7px}
+  .world-game strong{font-size:12px}.world-game span{font-size:10px}
+  .world-game-controls{gap:3px}
+  .world-game-controls button{min-height:34px;font-size:10px;padding:6px}
+  .world-game small{font-size:9px}
+  .playing-world-game .interact-touch{bottom:calc(max(14px,env(safe-area-inset-bottom)) + 122px)}
+  .playing-world-game .world-prompt{display:none}
+}
